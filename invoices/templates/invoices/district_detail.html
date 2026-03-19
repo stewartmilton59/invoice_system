@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}{{ district.name }} - Facilities{% endblock %}
+{% block content %}
+<h1>{{ district.name }} District</h1>
+<p><strong>TIN:</strong> {{ district.tin_number|default:"Not provided" }}</p>
+<a href="{% url 'home' %}" class="btn btn-secondary mb-3">&larr; Back to Districts</a>
+
+<h2>Facilities</h2>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Facility</th>
+            <th>Total Invoiced</th>
+            <th>Total Paid</th>
+            <th>Balance</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for facility in facilities %}
+        <tr>
+            <td>{{ facility.name }}</td>
+            <td>{{ facility.total_invoices|default:0|floatformat:2 }}</td>
+            <td>{{ facility.total_paid|default:0|floatformat:2 }}</td>
+            <td class="{% if facility.total_invoices|default:0|add:facility.total_paid|default:0 < 0 %}balance-negative{% else %}balance-positive{% endif %}">
+                {{ facility.total_invoices|default:0|add:facility.total_paid|default:0|floatformat:2 }}
+            </td>
+            <td><a href="{% url 'facility_detail' facility.id %}" class="btn btn-sm btn-primary">View Invoices</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center">No facilities found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

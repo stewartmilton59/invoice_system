@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Districts</h1>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>District</th>
+            <th>TIN</th>
+            <th>Total Invoiced</th>
+            <th>Total Paid</th>
+            <th>Balance</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for district in districts %}
+        <tr>
+            <td>{{ district.name }}</td>
+            <td>{{ district.tin_number }}</td>
+            <td>{{ district.total_invoices|default:0|floatformat:2 }}</td>
+            <td>{{ district.total_paid|default:0|floatformat:2 }}</td>
+            <td>{{ district.total_invoices|default:0|add:district.total_paid|default:0|floatformat:2 }}</td>
+            <td><a href="{% url 'district_detail' district.id %}" class="btn btn-sm btn-primary">View</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
