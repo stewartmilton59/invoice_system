@@ -1,4 +1,8 @@
-django
+Django
 pandas
 openpyxl
-gunicorn
+xlsxwriter
+matplotlib
+seaborn
+django-import-export
+reportlab

@@ -1,0 +1,393 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .settings-header {
+        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        padding: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .settings-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        animation: float 20s infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translate(0, 0); }
+        50% { transform: translate(-20px, -20px); }
+    }
+
+    .settings-card {
+        border: none;
+        border-radius: 16px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        transition: all 0.3s;
+        margin-bottom: 1.5rem;
+    }
+
+    .settings-card:hover {
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+
+    .nav-pills .nav-link {
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        transition: all 0.3s;
+    }
+
+    .nav-pills .nav-link i {
+        margin-right: 0.5rem;
+    }
+
+    .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    }
+
+    .nav-pills .nav-link:hover:not(.active) {
+        background: rgba(13,110,253,0.1);
+        transform: translateX(5px);
+    }
+
+    .form-label {
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control, .form-select {
+        border-radius: 10px;
+        border: 1px solid #e9ecef;
+        transition: all 0.3s;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13,110,253,0.1);
+    }
+
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #0d6efd;
+        cursor: pointer;
+    }
+
+    .avatar-upload {
+        position: relative;
+        display: inline-block;
+    }
+
+    .avatar-upload input {
+        display: none;
+    }
+
+    .avatar-upload label {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        background: #0d6efd;
+        border-radius: 50%;
+        width: 35px;
+        height: 35px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .avatar-upload label:hover {
+        transform: scale(1.1);
+    }
+
+    @media (max-width: 768px) {
+        .settings-header {
+            padding: 1.5rem;
+        }
+    }
+</style>
+
+<div class="container-fluid p-0">
+    <!-- Header -->
+    <div class="settings-header text-white">
+        <div style="position: relative; z-index: 1;">
+            <h1 class="display-5 fw-bold mb-3">
+                <i class="bi bi-gear me-3"></i>Profile Settings
+            </h1>
+            <p class="lead mb-0">Manage your account settings and profile information</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 mb-4">
+            <div class="card settings-card">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <div class="avatar-upload">
+                            {% if user.profile.profile_picture %}
+                                <img src="{{ user.profile.profile_picture.url }}" class="profile-avatar" alt="Profile Picture" id="profileAvatar">
+                            {% else %}
+                                <div class="profile-avatar bg-secondary d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #0d6efd, #0a58ca);">
+                                    <i class="bi bi-person fs-1 text-white"></i>
+                                </div>
+                            {% endif %}
+                            <form method="post" action="{% url 'upload_profile_picture' %}" enctype="multipart/form-data" id="profilePicForm">
+                                {% csrf_token %}
+                                <label for="profile_pic_input" class="btn btn-sm btn-light">
+                                    <i class="bi bi-camera"></i>
+                                </label>
+                                <input type="file" id="profile_pic_input" name="profile_picture" accept="image/*" style="display: none;">
+                            </form>
+                        </div>
+                        <h5 class="mt-3 mb-0">{{ user.profile.full_name }}</h5>
+                        <small class="text-muted">@{{ user.username }}</small>
+                    </div>
+
+                    <hr>
+
+                    <div class="nav flex-column nav-pills" role="tablist">
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#account" type="button" role="tab">
+                            <i class="bi bi-person"></i> Account Information
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#profile" type="button" role="tab">
+                            <i class="bi bi-card-text"></i> Profile Details
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#password" type="button" role="tab">
+                            <i class="bi bi-lock"></i> Change Password
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#preferences" type="button" role="tab">
+                            <i class="bi bi-gear"></i> Preferences
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="col-md-9">
+            <div class="tab-content">
+                <!-- Account Information Tab -->
+                <div class="tab-pane fade show active" id="account" role="tabpanel">
+                    <div class="card settings-card">
+                        <div class="card-body p-4">
+                            <h4 class="mb-4">
+                                <i class="bi bi-person me-2 text-primary"></i>Account Information
+                            </h4>
+                            <form method="post" action="{% url 'profile_settings' %}">
+                                {% csrf_token %}
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Username</label>
+                                        {{ user_form.username }}
+                                        {% if user_form.username.errors %}
+                                            <small class="text-danger">{{ user_form.username.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Email Address</label>
+                                        {{ user_form.email }}
+                                        {% if user_form.email.errors %}
+                                            <small class="text-danger">{{ user_form.email.errors.0 }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">First Name</label>
+                                        {{ user_form.first_name }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Last Name</label>
+                                        {{ user_form.last_name }}
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-save me-2"></i>Save Changes
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profile Details Tab -->
+                <div class="tab-pane fade" id="profile" role="tabpanel">
+                    <div class="card settings-card">
+                        <div class="card-body p-4">
+                            <h4 class="mb-4">
+                                <i class="bi bi-card-text me-2 text-primary"></i>Profile Details
+                            </h4>
+                            <form method="post" action="{% url 'profile_settings' %}">
+                                {% csrf_token %}
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Phone Number</label>
+                                        {{ profile_form.phone }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Date of Birth</label>
+                                        {{ profile_form.date_of_birth }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Job Title</label>
+                                        {{ profile_form.job_title }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Department</label>
+                                        {{ profile_form.department }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Company</label>
+                                        {{ profile_form.company }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Website</label>
+                                        {{ profile_form.website }}
+                                    </div>
+                                    <div class="col-md-12 mb-3">
+                                        <label class="form-label">Address</label>
+                                        {{ profile_form.address }}
+                                    </div>
+                                    <div class="col-md-12 mb-3">
+                                        <label class="form-label">Bio</label>
+                                        {{ profile_form.bio }}
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-save me-2"></i>Save Changes
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Change Password Tab -->
+                <div class="tab-pane fade" id="password" role="tabpanel">
+                    <div class="card settings-card">
+                        <div class="card-body p-4">
+                            <h4 class="mb-4">
+                                <i class="bi bi-lock me-2 text-primary"></i>Change Password
+                            </h4>
+                            <form method="post" action="{% url 'change_password' %}">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label class="form-label">Current Password</label>
+                                    {{ form.old_password }}
+                                    {% if form.old_password.errors %}
+                                        <small class="text-danger">{{ form.old_password.errors.0 }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">New Password</label>
+                                    {{ form.new_password1 }}
+                                    {% if form.new_password1.errors %}
+                                        <small class="text-danger">{{ form.new_password1.errors.0 }}</small>
+                                    {% endif %}
+                                    <small class="text-muted d-block mt-1">At least 8 characters</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Confirm New Password</label>
+                                    {{ form.new_password2 }}
+                                    {% if form.new_password2.errors %}
+                                        <small class="text-danger">{{ form.new_password2.errors.0 }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-key me-2"></i>Update Password
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preferences Tab -->
+                <div class="tab-pane fade" id="preferences" role="tabpanel">
+                    <div class="card settings-card">
+                        <div class="card-body p-4">
+                            <h4 class="mb-4">
+                                <i class="bi bi-gear me-2 text-primary"></i>Preferences
+                            </h4>
+                            <form method="post" action="{% url 'profile_settings' %}">
+                                {% csrf_token %}
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Preferred Language</label>
+                                        {{ profile_form.preferred_language }}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Theme Preference</label>
+                                        {{ profile_form.theme_preference }}
+                                    </div>
+                                    <div class="col-md-12 mb-3">
+                                        <div class="form-check form-switch">
+                                            {{ profile_form.email_notifications }}
+                                            <label class="form-check-label" for="{{ profile_form.email_notifications.id_for_label }}">
+                                                Email Notifications
+                                            </label>
+                                        </div>
+                                        <small class="text-muted">Receive email updates about your account and invoices</small>
+                                    </div>
+                                    <div class="col-md-12 mb-3">
+                                        <div class="form-check form-switch">
+                                            {{ profile_form.sms_notifications }}
+                                            <label class="form-check-label" for="{{ profile_form.sms_notifications.id_for_label }}">
+                                                SMS Notifications
+                                            </label>
+                                        </div>
+                                        <small class="text-muted">Receive SMS alerts for important updates</small>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-save me-2"></i>Save Preferences
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Profile picture upload
+    document.getElementById('profile_pic_input').addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            document.getElementById('profilePicForm').submit();
+        }
+    });
+
+    // Preview profile picture before upload
+    document.getElementById('profile_pic_input').addEventListener('change', function(e) {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const avatar = document.getElementById('profileAvatar');
+                if (avatar) {
+                    avatar.src = e.target.result;
+                }
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
+</script>
+{% endblock %}

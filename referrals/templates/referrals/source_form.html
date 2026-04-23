@@ -1,0 +1,125 @@
+{% extends 'referrals/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+    .form-card {
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        overflow: hidden;
+    }
+
+    .form-header {
+        background: linear-gradient(135deg, #198754 0%, #157347 100%);
+        padding: 1.5rem;
+        color: white;
+    }
+
+    .form-label {
+        font-weight: 600;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+        color: #495057;
+    }
+
+    .form-control, .form-select, textarea {
+        border-radius: 10px;
+        border: 1px solid #e9ecef;
+        padding: 0.6rem 1rem;
+        transition: all 0.3s;
+    }
+
+    .form-control:focus, .form-select:focus, textarea:focus {
+        border-color: #198754;
+        box-shadow: 0 0 0 0.2rem rgba(25,135,84,0.1);
+    }
+
+    .required-field::after {
+        content: "*";
+        color: #dc3545;
+        margin-left: 4px;
+    }
+
+    .help-text {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+
+    .errorlist {
+        color: #dc3545;
+        font-size: 0.75rem;
+        list-style: none;
+        padding-left: 0;
+        margin-top: 0.25rem;
+        margin-bottom: 0;
+    }
+</style>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="form-card card shadow-sm">
+                <div class="form-header">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-building fs-2"></i>
+                        <div>
+                            <h4 class="mb-0 fw-bold">{{ title }}</h4>
+                            <p class="mb-0 opacity-75 small">Manage Hospitals hospital information</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="row g-3">
+                            <!-- Hospital Name (formerly Referral Source Name) -->
+                            <div class="col-md-12">
+                                <label for="{{ form.name.id_for_label }}" class="form-label required-field">
+                                    Hospital Name
+                                </label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                    <ul class="errorlist">{{ form.name.errors }}</ul>
+                                {% endif %}
+                                <div class="help-text">Full name of the referring hospital or clinic</div>
+                            </div>
+
+                            <!-- TIN Number (new field) -->
+                            <div class="col-md-12">
+                                <label for="{{ form.tin_number.id_for_label }}" class="form-label required-field">
+                                    TIN Number
+                                </label>
+                                {{ form.tin_number }}
+                                {% if form.tin_number.errors %}
+                                    <ul class="errorlist">{{ form.tin_number.errors }}</ul>
+                                {% endif %}
+                                <div class="help-text">Tax Identification Number (TIN) of the hospital</div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                            <a href="{% url 'referral:source_list' %}" class="btn btn-outline-secondary px-4">
+                                <i class="bi bi-x-circle me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-success px-4">
+                                <i class="bi bi-check-circle me-1"></i> Save Hospital
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

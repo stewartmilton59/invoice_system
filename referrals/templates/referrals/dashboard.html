@@ -1,0 +1,339 @@
+{% extends 'referrals/base.html' %}
+{% load humanize %}
+{% load math_filters %}
+
+{% block title %}Hospital Analytics Dashboard | Robby One Pharmacy{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-dark: #1b4332; /* Deep Professional Green */
+        --accent-emerald: #2d6a4f;
+        --soft-bg: #f8f9fa;
+        --border-color: #e9ecef;
+        --text-muted: #6c757d;
+    }
+
+    body { background-color: var(--soft-bg); font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+    /* Classic Professional Header */
+    .referral-header {
+        background: var(--primary-dark);
+        background-image: radial-gradient(circle at 20% 50%, rgba(45, 106, 79, 0.4) 0%, transparent 50%);
+        border-radius: 12px;
+        margin-bottom: 2.5rem;
+        box-shadow: 0 10px 30px rgba(27, 67, 50, 0.15);
+    }
+
+    /* Refined Stats Cards */
+    .stats-card {
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background: #ffffff;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 20px rgba(0,0,0,0.05);
+        border-color: var(--accent-emerald);
+    }
+
+    .stats-card::after {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 4px; height: 100%;
+        background: transparent;
+        transition: background 0.3s;
+    }
+    .stats-card:hover::after { background: var(--accent-emerald); }
+
+    .stat-icon {
+        width: 42px; height: 42px;
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    /* Informative Table Styling */
+    .chart-card {
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .table thead th {
+        background-color: #fcfcfd;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        border-top: none;
+    }
+
+    .progress-sm { height: 6px; border-radius: 10px; background-color: #eee; }
+
+    /* Classic Typography */
+    .kpi-label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+    .kpi-value { font-size: 1.5rem; font-weight: 700; color: #1a1d23; letter-spacing: -0.02em; }
+
+    .quick-action-btn {
+        transition: all 0.2s;
+        border: 1px solid var(--border-color);
+    }
+    .quick-action-btn:hover {
+        background-color: #fff !important;
+        border-color: var(--accent-emerald);
+        transform: scale(1.02);
+    }
+</style>
+
+<div class="container-fluid py-4">
+    <div class="referral-header text-white p-4 p-lg-5 mb-5">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-2">
+                        <li class="breadcrumb-item"><a href="#" class="text-white-50 text-decoration-none small">Analytics</a></li>
+                        <li class="breadcrumb-item active text-white small" aria-current="page">Dashboard</li>
+                    </ol>
+                </nav>
+                <h1 class="display-6 fw-bold mb-2">Hospital Revenue Operations</h1>
+                <p class="opacity-75 mb-0">Financial oversight of referral partnerships and collection cycles.</p>
+            </div>
+            <div class="col-md-4 text-end d-none d-md-block">
+                <div class="bg-white bg-opacity-10 p-3 rounded-3 d-inline-block border border-white border-opacity-10">
+                    <div class="small opacity-75">Global Collection Rate</div>
+                    <div class="fs-3 fw-bold">
+                        {% if total_purchased > 0 %}{{ total_paid|div:total_purchased|multiply:100|floatformat:1 }}{% else %}0{% endif %}%
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="stats-card card h-100 shadow-sm border-0" onclick="window.location='{% url 'referral:invoice_list' %}'">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="stat-icon bg-dark text-white"><i class="bi bi-wallet2"></i></div>
+                        <i class="bi bi-arrow-up-right text-muted"></i>
+                    </div>
+                    <div class="kpi-label">GROSS PURCHASE VALUE</div>
+                    <div class="kpi-value">TZS {{ total_purchased|floatformat:0|intcomma }}</div>
+                    <div class="mt-2 small text-muted">Total across {{ total_invoices }} records</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card card h-100 shadow-sm border-0" onclick="window.location='{% url 'referral:invoice_list' %}?status=paid'">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="stat-icon bg-success text-white"><i class="bi bi-cash-coin"></i></div>
+                        <span class="badge bg-success-soft text-success">Verified</span>
+                    </div>
+                    <div class="kpi-label">COLLECTED REVENUE</div>
+                    <div class="kpi-value">TZS {{ total_paid|floatformat:0|intcomma }}</div>
+                    <div class="progress progress-sm mt-3">
+                        <div class="progress-bar bg-success" style="width: {% if total_purchased > 0 %}{{ total_paid|div:total_purchased|multiply:100 }}{% else %}0{% endif %}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card card h-100 shadow-sm border-0" onclick="window.location='{% url 'referral:invoice_list' %}?status=unpaid'">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="stat-icon bg-danger text-white"><i class="bi bi-exclamation-circle"></i></div>
+                        <span class="text-danger small fw-bold">Action Required</span>
+                    </div>
+                    <div class="kpi-label">OUTSTANDING EXPOSURE</div>
+                    <div class="kpi-value text-danger">TZS {{ total_outstanding|floatformat:0|intcomma }}</div>
+                    <div class="mt-2 small text-muted">Risk: {% if total_purchased > 0 %}{{ total_outstanding|div:total_purchased|multiply:100|floatformat:1 }}{% else %}0{% endif %}% of total</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card card h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="stat-icon bg-primary text-white"><i class="bi bi-files"></i></div>
+                        <div class="text-muted small">{{ today|date:"M Y" }}</div>
+                    </div>
+                    <div class="kpi-label">INVOICE VOLUME</div>
+                    <div class="kpi-value">{{ total_invoices|intcomma }} <span class="fs-6 fw-normal text-muted">Invoices</span></div>
+                    <div class="mt-2 small"><a href="{% url 'referral:invoice_add' %}" class="text-primary text-decoration-none">+ Create New Invoice</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-lg-8">
+            <div class="chart-card card border-0">
+                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0 fw-bold text-dark">Partner Hospital Performance</h5>
+                        <p class="text-muted small mb-0">Ranking by total procurement volume</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table align-middle table-hover border-top">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Hospital Entity</th>
+                                    <th class="text-end">Total Purchased</th>
+                                    <th class="text-end">Balance Due</th>
+                                    <th class="text-center">Collection Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for source in sources_summary %}
+                                <tr onclick="window.location='{% url 'referral:source_list' %}'" style="cursor: pointer;">
+                                    <td class="ps-4">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-light p-2 rounded-circle me-3"><i class="bi bi-hospital text-success"></i></div>
+                                            <span class="fw-bold">{{ source.name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-end fw-semibold text-dark">TZS {{ source.total_purchased|floatformat:0|intcomma }}</td>
+                                    <td class="text-end"><span class="{% if source.balance > 0 %}text-danger{% else %}text-muted{% endif %}">TZS {{ source.balance|floatformat:0|intcomma }}</span></td>
+                                    <td class="text-center" style="width: 180px;">
+                                        {% with rate=source.total_paid|div:source.total_purchased|multiply:100 %}
+                                        <div class="d-flex align-items-center gap-2 px-3">
+                                            <div class="progress flex-grow-1" style="height: 4px;">
+                                                <div class="progress-bar bg-{% if rate > 80 %}success{% elif rate > 40 %}warning{% else %}danger{% endif %}" style="width: {{ rate }}%"></div>
+                                            </div>
+                                            <small class="fw-bold">{{ rate|floatformat:0 }}%</small>
+                                        </div>
+                                        {% endwith %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center py-5 text-muted">No active hospital data found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="chart-card card border-0 h-100">
+                <div class="card-header bg-transparent border-0 pt-4 px-4">
+                    <h5 class="mb-0 fw-bold text-dark">Aging Status</h5>
+                    <p class="text-muted small mb-0">Distribution of payment cycles</p>
+                </div>
+                <div class="card-body d-flex align-items-center">
+                    <div id="statusDonutChart" style="width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="chart-card card border-0 p-4">
+                <h5 class="fw-bold text-dark mb-4"><i class="bi bi-activity me-2"></i>Quarterly Growth & Collection Velocity</h5>
+                <div id="trendChart"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-3 col-md-6">
+            <a href="{% url 'referral:invoice_add' %}" class="quick-action-btn card h-100 p-4 text-center bg-white text-decoration-none">
+                <i class="bi bi-plus-square fs-2 text-success mb-2"></i>
+                <div class="fw-bold text-dark">New Invoice</div>
+                <div class="text-muted small">Record transaction</div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <a href="{% url 'referral:source_add' %}" class="quick-action-btn card h-100 p-4 text-center bg-white text-decoration-none">
+                <i class="bi bi-hospital fs-2 text-success mb-2"></i>
+                <div class="fw-bold text-dark">Register Partner</div>
+                <div class="text-muted small">New Hospital Source</div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <a href="{% url 'referral:export_excel' %}" class="quick-action-btn card h-100 p-4 text-center bg-white text-decoration-none">
+                <i class="bi bi-file-earmark-spreadsheet fs-2 text-primary mb-2"></i>
+                <div class="fw-bold text-dark">Financial Export</div>
+                <div class="text-muted small">Excel format report</div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <a href="{% url 'referral:export_pdf' %}" class="quick-action-btn card h-100 p-4 text-center bg-white text-decoration-none">
+                <i class="bi bi-printer fs-2 text-danger mb-2"></i>
+                <div class="fw-bold text-dark">PDF Summary</div>
+                <div class="text-muted small">Official statement</div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+    // Theme colors for Classic look
+    const colors = {
+        emerald: '#2d6a4f',
+        amber: '#d97706',
+        rose: '#be123c',
+        slate: '#475569'
+    };
+
+    // Status Donut Chart Configuration
+    const statusData = {{ status_counts|safe }};
+    const donutOptions = {
+        series: [statusData.Paid || 0, statusData.Partial || 0, statusData.Unpaid || 0],
+        labels: ['Settled', 'Partial Payment', 'Pending Settlement'],
+        chart: { type: 'donut', height: 350 },
+        colors: [colors.emerald, colors.amber, colors.rose],
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '75%',
+                    labels: {
+                        show: true,
+                        total: { show: true, label: 'TOTAL INVOICES', fontSize: '12px', color: '#64748b' }
+                    }
+                }
+            }
+        },
+        legend: { position: 'bottom', fontSize: '13px' },
+        dataLabels: { enabled: false }
+    };
+    new ApexCharts(document.querySelector("#statusDonutChart"), donutOptions).render();
+
+    // Trend Chart Configuration
+    const trendOptions = {
+        series: [
+            { name: 'Total Procurement', data: {{ purchased_totals|safe }} },
+            { name: 'Collections Received', data: {{ paid_totals|safe }} }
+        ],
+        chart: { height: 380, type: 'area', toolbar: { show: false }, zoom: { enabled: false } },
+        colors: [colors.slate, colors.emerald],
+        dataLabels: { enabled: false },
+        stroke: { curve: 'smooth', width: 2 },
+        fill: {
+            type: 'gradient',
+            gradient: { shadeIntensity: 1, opacityFrom: 0.3, opacityTo: 0.05 }
+        },
+        xaxis: {
+            categories: {{ months|safe }},
+            axisBorder: { show: false },
+            axisTicks: { show: false }
+        },
+        yaxis: { labels: { formatter: (v) => 'TZS ' + (v/1000).toFixed(0) + 'K' } },
+        grid: { borderColor: '#f1f1f1', strokeDashArray: 4 },
+        legend: { position: 'top', horizontalAlign: 'right' }
+    };
+    new ApexCharts(document.querySelector("#trendChart"), trendOptions).render();
+</script>
+{% endblock %}

@@ -1,0 +1,598 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% load math_filters %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-color: #0d6efd;
+        --success-color: #198754;
+        --danger-color: #dc3545;
+        --warning-color: #ffc107;
+        --info-color: #0dcaf0;
+        --dark-bg: #1a1e2c;
+    }
+
+    .stats-card {
+        border: none;
+        border-radius: 20px;
+        transition: all 0.3s;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fc 100%);
+    }
+
+    .stats-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 35px -10px rgba(0,0,0,0.15);
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+
+    .stats-card.card-primary::before { background: linear-gradient(90deg, #0d6efd, #0a58ca); }
+    .stats-card.card-success::before { background: linear-gradient(90deg, #198754, #157347); }
+    .stats-card.card-info::before { background: linear-gradient(90deg, #0dcaf0, #0aa2c0); }
+    .stats-card.card-warning::before { background: linear-gradient(90deg, #ffc107, #e0a800); }
+
+    .stat-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+    }
+
+    .stats-card:hover .stat-icon {
+        transform: scale(1.05);
+    }
+
+    .chart-card {
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        transition: all 0.3s;
+        overflow: hidden;
+    }
+
+    .chart-card:hover {
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+
+    .dashboard-header {
+        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 50%, #084298 100%);
+        border-radius: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .dashboard-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 400px;
+        height: 400px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        animation: float 20s infinite;
+    }
+
+    .dashboard-header::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        left: -5%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 50%;
+        animation: float 15s infinite reverse;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translate(0, 0); }
+        50% { transform: translate(-20px, -20px); }
+    }
+
+    .quick-action-btn {
+        border-radius: 12px;
+        padding: 12px;
+        transition: all 0.3s;
+        text-align: center;
+        background: #ffffff;
+        border: 1px solid #e9ecef;
+        cursor: pointer;
+    }
+
+    .quick-action-btn:hover {
+        transform: translateY(-3px);
+        background: linear-gradient(135deg, #f8f9fc, #ffffff);
+        border-color: #0d6efd;
+        box-shadow: 0 5px 15px rgba(13,110,253,0.2);
+    }
+
+    .trend-up { color: #198754; }
+    .trend-down { color: #dc3545; }
+
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .progress-custom {
+        height: 12px;
+        border-radius: 10px;
+        background: #e9ecef;
+    }
+
+    .progress-custom .progress-bar {
+        border-radius: 10px;
+        transition: width 1s ease;
+    }
+
+    .status-badge {
+        padding: 6px 14px;
+        border-radius: 30px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .table-hover tbody tr {
+        transition: all 0.2s;
+    }
+
+    .table-hover tbody tr:hover {
+        background: rgba(13,110,253,0.05);
+        transform: scale(1.01);
+        cursor: pointer;
+    }
+
+    .insight-card {
+        background: linear-gradient(135deg, #f8f9fc, #ffffff);
+        border: 1px solid #e9ecef;
+        border-radius: 16px;
+        padding: 1rem;
+        transition: all 0.3s;
+    }
+
+    .insight-card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+
+    @media (max-width: 768px) {
+        .metric-value { font-size: 1.5rem; }
+        .dashboard-header { padding: 2rem !important; }
+    }
+</style>
+
+<div class="container-fluid p-0">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header text-white p-5 mb-4 position-relative">
+        <div style="position: relative; z-index: 1;">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="display-4 fw-bold mb-3">
+                        <i class="bi bi-graph-up me-3"></i>Analytics Dashboard
+                    </h1>
+                    <p class="lead mb-4">Comprehensive financial insights and performance metrics at a glance.</p>
+                    <div class="d-flex gap-3 flex-wrap">
+                        <a href="{% url 'export_excel' %}" class="btn btn-light btn-lg px-4">
+                            <i class="bi bi-file-earmark-excel me-2"></i> Export Excel
+                        </a>
+                        <a href="{% url 'export_pdf' %}" class="btn btn-outline-light btn-lg px-4">
+                            <i class="bi bi-file-earmark-pdf me-2"></i> Export PDF
+                        </a>
+                        <button onclick="location.reload()" class="btn btn-outline-light btn-lg px-4">
+                            <i class="bi bi-arrow-repeat me-2"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-4 text-center d-none d-md-block">
+                    <i class="bi bi-bar-chart-steps fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Metrics Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stats-card card h-100 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="stat-icon bg-primary bg-opacity-10">
+                            <i class="bi bi-currency-dollar fs-2 text-primary"></i>
+                        </div>
+                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">Revenue</span>
+                    </div>
+                    <div class="metric-value mb-2">{{ total_invoiced|floatformat:2|intcomma }}</div>
+                    <p class="text-muted mb-2 small">Total Invoiced (TZS)</p>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="trend-up">
+                            <i class="bi bi-arrow-up-short"></i> +12.5%
+                        </span>
+                        <small class="text-muted">vs last month</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card card h-100 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="stat-icon bg-success bg-opacity-10">
+                            <i class="bi bi-cash-stack fs-2 text-success"></i>
+                        </div>
+                        <span class="badge bg-success bg-opacity-10 text-success px-3 py-2">Collected</span>
+                    </div>
+                    <div class="metric-value mb-2">{{ total_paid|floatformat:2|intcomma }}</div>
+                    <p class="text-muted mb-2 small">Total Paid (TZS)</p>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="trend-up">
+                            <i class="bi bi-arrow-up-short"></i> +8.2%
+                        </span>
+                        <small class="text-muted">collection rate up</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card card h-100 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="stat-icon bg-warning bg-opacity-10">
+                            <i class="bi bi-exclamation-triangle fs-2 text-warning"></i>
+                        </div>
+                        <span class="badge bg-warning bg-opacity-10 text-warning px-3 py-2">Pending</span>
+                    </div>
+                    <div class="metric-value mb-2">{{ total_outstanding|floatformat:2|intcomma }}</div>
+                    <p class="text-muted mb-2 small">Outstanding Balance (TZS)</p>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="trend-down">
+                            <i class="bi bi-arrow-down-short"></i> -5.2%
+                        </span>
+                        <small class="text-muted">improving</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card card h-100 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="stat-icon bg-info bg-opacity-10">
+                            <i class="bi bi-receipt fs-2 text-info"></i>
+                        </div>
+                        <span class="badge bg-info bg-opacity-10 text-info px-3 py-2">Total</span>
+                    </div>
+                    <div class="metric-value mb-2">{{ total_invoices|intcomma }}</div>
+                    <p class="text-muted mb-2 small">Total Invoices</p>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="trend-up">
+                            <i class="bi bi-arrow-up-short"></i> +15.3%
+                        </span>
+                        <small class="text-muted">vs last month</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Insights Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="insight-card">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="stat-icon bg-success bg-opacity-10" style="width: 45px; height: 45px;">
+                        <i class="bi bi-percent fs-4 text-success"></i>
+                    </div>
+                    <div>
+                        <div class="metric-value mb-0" style="font-size: 1.5rem;">
+                            {% if total_invoiced > 0 %}
+                                {{ total_paid|div:total_invoiced|multiply:100|floatformat:1 }}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">Collection Rate</small>
+                    </div>
+                </div>
+                <div class="progress-custom progress mb-2">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {% if total_invoiced > 0 %}{{ total_paid|div:total_invoiced|multiply:100 }}{% else %}0{% endif %}%"></div>
+                </div>
+                <small class="text-muted">Target: 90% collection rate</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="insight-card">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="stat-icon bg-primary bg-opacity-10" style="width: 45px; height: 45px;">
+                        <i class="bi bi-calculator fs-4 text-primary"></i>
+                    </div>
+                    <div>
+                        <div class="metric-value mb-0" style="font-size: 1.5rem;">
+                            {% if total_invoiced > 0 %}
+                                {{ total_invoices|intcomma }}
+                            {% else %}
+                                0
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">Avg. Invoice Value</small>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <strong>{{ total_invoiced|div:total_invoices|floatformat:2|intcomma }}</strong>
+                    <small class="text-muted"> TZS per invoice</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="insight-card">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="stat-icon bg-warning bg-opacity-10" style="width: 45px; height: 45px;">
+                        <i class="bi bi-clock fs-4 text-warning"></i>
+                    </div>
+                    <div>
+                        <div class="metric-value mb-0" style="font-size: 1.5rem;">
+                            {% if total_paid > 0 %}
+                                {{ total_outstanding|div:total_paid|multiply:100|floatformat:1 }}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">Debt Ratio</small>
+                    </div>
+                </div>
+                <small class="text-muted">Outstanding vs Paid ratio</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-7">
+            <div class="chart-card card shadow-sm h-100">
+                <div class="card-header bg-white border-0 pt-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0 fw-bold">
+                                <i class="bi bi-graph-up me-2 text-primary"></i>Revenue Trend Analysis
+                            </h5>
+                            <small class="text-muted">Last 12 months performance tracking</small>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary active">Line</button>
+                            <button class="btn btn-outline-primary">Area</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <img src="data:image/png;base64,{{ trend_chart }}" class="img-fluid" alt="Payment Trends">
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-5">
+            <div class="chart-card card shadow-sm h-100">
+                <div class="card-header bg-white border-0 pt-4">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-pie-chart me-2 text-primary"></i>Distribution by District
+                    </h5>
+                    <small class="text-muted">Invoice value breakdown</small>
+                </div>
+                <div class="card-body text-center">
+                    <img src="data:image/png;base64,{{ pie_chart }}" class="img-fluid" alt="District Distribution">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Outstanding Facilities and Performance -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-7">
+            {% if balance_chart %}
+            <div class="chart-card card shadow-sm">
+                <div class="card-header bg-white border-0 pt-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0 fw-bold">
+                                <i class="bi bi-trophy me-2 text-primary"></i>Top 10 Facilities by Outstanding Balance
+                            </h5>
+                            <small class="text-muted">Facilities with highest pending payments</small>
+                        </div>
+                        <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2">
+                            <i class="bi bi-flag"></i> Priority
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <img src="data:image/png;base64,{{ balance_chart }}" class="img-fluid" alt="Outstanding Balances">
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="col-xl-5">
+            <div class="chart-card card shadow-sm">
+                <div class="card-header bg-white border-0 pt-4">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-speedometer2 me-2 text-primary"></i>Performance Indicators
+                    </h5>
+                    <small class="text-muted">Key metrics and health status</small>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Collection Rate</span>
+                            <span class="fw-bold">
+                                {% if total_invoiced > 0 %}
+                                    {{ total_paid|div:total_invoiced|multiply:100|floatformat:1 }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="progress-custom progress">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {% if total_invoiced > 0 %}{{ total_paid|div:total_invoiced|multiply:100 }}{% else %}0{% endif %}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Outstanding Ratio</span>
+                            <span class="fw-bold">
+                                {% if total_invoiced > 0 %}
+                                    {{ total_outstanding|div:total_invoiced|multiply:100|floatformat:1 }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="progress-custom progress">
+                            <div class="progress-bar bg-warning" role="progressbar" style="width: {% if total_invoiced > 0 %}{{ total_outstanding|div:total_invoiced|multiply:100 }}{% else %}0{% endif %}%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Payment Efficiency</span>
+                            <span class="fw-bold">
+                                {% if total_paid > 0 %}
+                                    {{ total_paid|div:total_invoiced|multiply:100|floatformat:1 }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="progress-custom progress">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {% if total_paid > 0 %}{{ total_paid|div:total_invoiced|multiply:100 }}{% else %}0{% endif %}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Facility Table -->
+    {% if facility_balances %}
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="chart-card card shadow-sm">
+                <div class="card-header bg-white border-0 pt-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0 fw-bold">
+                                <i class="bi bi-table me-2 text-primary"></i>Facility Outstanding Summary
+                            </h5>
+                            <small class="text-muted">Detailed breakdown of top facilities</small>
+                        </div>
+                        <div class="input-group" style="width: 250px;">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" id="facilitySearch" class="form-control" placeholder="Search facilities...">
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="facilityTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th><i class="bi bi-building"></i> Facility</th>
+                                <th><i class="bi bi-geo-alt"></i> District</th>
+                                <th class="text-end"><i class="bi bi-currency-dollar"></i> Total Invoiced</th>
+                                <th class="text-end"><i class="bi bi-cash-stack"></i> Total Paid</th>
+                                <th class="text-end"><i class="bi bi-exclamation-triangle"></i> Outstanding Balance</th>
+                                <th class="text-center"><i class="bi bi-percent"></i> Collection Rate</th>
+                                <th class="text-center"><i class="bi bi-flag"></i> Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for facility in facility_balances %}
+                            <tr onclick="window.location='{% url 'facility_detail' facility.id %}'">
+                                <td class="fw-semibold">
+                                    <i class="bi bi-hospital text-primary me-2"></i>{{ facility.name }}
+                                </td>
+                                <td>{{ facility.district.name }}</td>
+                                <td class="text-end">{{ facility.total_invoiced|floatformat:2|intcomma }}</td>
+                                <td class="text-end text-success">{{ facility.total_paid|floatformat:2|intcomma }}</td>
+                                <td class="text-end text-danger fw-bold">{{ facility.balance|floatformat:2|intcomma }}</td>
+                                <td class="text-center">
+                                    <div class="d-flex align-items-center justify-content-center gap-2">
+                                        <div class="progress" style="width: 80px; height: 6px;">
+                                            <div class="progress-bar bg-success" role="progressbar" style="width: {% widthratio facility.total_paid facility.total_invoiced 100 %}%"></div>
+                                        </div>
+                                        <span class="small">{% widthratio facility.total_paid facility.total_invoiced 100 %}%</span>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    {% with rate=facility.total_paid|div:facility.total_invoiced|multiply:100 %}
+                                        {% if rate >= 90 %}
+                                            <span class="status-badge badge-paid"><i class="bi bi-check-circle-fill"></i> Excellent</span>
+                                        {% elif rate >= 50 %}
+                                            <span class="status-badge badge-partial"><i class="bi bi-exclamation-triangle-fill"></i> Moderate</span>
+                                        {% else %}
+                                            <span class="status-badge badge-unpaid"><i class="bi bi-x-circle-fill"></i> Critical</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer bg-white border-0 pt-0 pb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Showing {{ facility_balances|length }} facilities</small>
+                        <a href="{% url 'facility_list' %}" class="btn btn-sm btn-link">View All Facilities <i class="bi bi-arrow-right"></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    // Search functionality for the facility table
+    document.getElementById('facilitySearch')?.addEventListener('keyup', function() {
+        const searchValue = this.value.toLowerCase();
+        const table = document.getElementById('facilityTable');
+        const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        for (let row of rows) {
+            const facilityName = row.cells[0].textContent.toLowerCase();
+            const district = row.cells[1].textContent.toLowerCase();
+            if (facilityName.includes(searchValue) || district.includes(searchValue)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    });
+
+    // Chart toggle functionality (for future implementation with real charts)
+    const chartButtons = document.querySelectorAll('.btn-group .btn');
+    chartButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            chartButtons.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+
+    // Auto-refresh data every 5 minutes (optional)
+    setTimeout(function() {
+        location.reload();
+    }, 300000);
+</script>
+{% endblock %}

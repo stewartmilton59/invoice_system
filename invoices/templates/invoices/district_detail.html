@@ -1,35 +1,341 @@
 {% extends 'base.html' %}
-{% block title %}{{ district.name }} - Facilities{% endblock %}
-{% block content %}
-<h1>{{ district.name }} District</h1>
-<p><strong>TIN:</strong> {{ district.tin_number|default:"Not provided" }}</p>
-<a href="{% url 'home' %}" class="btn btn-secondary mb-3">&larr; Back to Districts</a>
+{% load humanize %}
+{% load math_filters %}
 
-<h2>Facilities</h2>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Facility</th>
-            <th>Total Invoiced</th>
-            <th>Total Paid</th>
-            <th>Balance</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for facility in facilities %}
-        <tr>
-            <td>{{ facility.name }}</td>
-            <td>{{ facility.total_invoices|default:0|floatformat:2 }}</td>
-            <td>{{ facility.total_paid|default:0|floatformat:2 }}</td>
-            <td class="{% if facility.total_invoices|default:0|add:facility.total_paid|default:0 < 0 %}balance-negative{% else %}balance-positive{% endif %}">
-                {{ facility.total_invoices|default:0|add:facility.total_paid|default:0|floatformat:2 }}
-            </td>
-            <td><a href="{% url 'facility_detail' facility.id %}" class="btn btn-sm btn-primary">View Invoices</a></td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="5" class="text-center">No facilities found.</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+{% block title %}{{ district.name }} District - Facilities{% endblock %}
+
+{% block content %}
+<style>
+    .district-header {
+        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+        border-radius: 20px;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .district-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        animation: float 20s infinite;
+    }
+
+    .district-header::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        left: -5%;
+        width: 250px;
+        height: 250px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 50%;
+        animation: float 15s infinite reverse;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translate(0, 0); }
+        50% { transform: translate(-20px, -20px); }
+    }
+
+    .stats-card {
+        border: none;
+        border-radius: 20px;
+        transition: all 0.3s;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fc 100%);
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .table-card {
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        transition: all 0.3s;
+        overflow: hidden;
+    }
+
+    .table-card:hover {
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+
+    .table-hover tbody tr {
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+    .table-hover tbody tr:hover {
+        background: rgba(13,110,253,0.05);
+        transform: scale(1.01);
+    }
+
+    .info-badge {
+        background: rgba(13,110,253,0.1);
+        color: #0d6efd;
+        padding: 0.5rem 1rem;
+        border-radius: 30px;
+        font-size: 0.875rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .balance-positive {
+        color: #28a745;
+        font-weight: 600;
+    }
+
+    .balance-negative {
+        color: #dc3545;
+        font-weight: 600;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .district-header {
+            padding: 1.5rem !important;
+        }
+
+        .district-header h1 {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+
+<div class="container-fluid p-0">
+    <!-- District Header -->
+    <div class="district-header text-white p-5 position-relative">
+        <div style="position: relative; z-index: 1;">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <i class="bi bi-building fs-1"></i>
+                        <h1 class="display-5 fw-bold mb-0">{{ district.name }} District</h1>
+                    </div>
+                    <p class="lead mb-3">Manage and view all facilities within this district</p>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <span class="info-badge bg-white bg-opacity-10 text-white">
+                            <i class="bi bi-card-text"></i> TIN: {{ district.tin_number|default:"Not provided" }}
+                        </span>
+                        <span class="info-badge bg-white bg-opacity-10 text-white">
+                            <i class="bi bi-hospital"></i> {{ facilities|length }} Facility{{ facilities|length|pluralize }}
+                        </span>
+                    </div>
+                </div>
+                <div class="col-md-4 text-center d-none d-md-block">
+                    <i class="bi bi-geo-alt fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="stats-card card h-100 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="stat-icon bg-primary bg-opacity-10">
+                            <i class="bi bi-hospital fs-3 text-primary"></i>
+                        </div>
+                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">Total</span>
+                    </div>
+                    <div class="metric-value mb-2 fw-bold" style="font-size: 2rem;">
+                        {{ facilities|length|intcomma }}
+                    </div>
+                    <p class="text-muted mb-0">Total Facilities</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card card h-100 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="stat-icon bg-success bg-opacity-10">
+                            <i class="bi bi-currency-dollar fs-3 text-success"></i>
+                        </div>
+                        <span class="badge bg-success bg-opacity-10 text-success px-3 py-2">Revenue</span>
+                    </div>
+                    <div class="metric-value mb-2 fw-bold" style="font-size: 1.5rem;">
+                        {{ total_invoiced|floatformat:2|intcomma }}
+                    </div>
+                    <p class="text-muted mb-0">Total Invoiced (TZS)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card card h-100 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="stat-icon bg-warning bg-opacity-10">
+                            <i class="bi bi-exclamation-triangle fs-3 text-warning"></i>
+                        </div>
+                        <span class="badge bg-warning bg-opacity-10 text-warning px-3 py-2">Pending</span>
+                    </div>
+                    <div class="metric-value mb-2 fw-bold" style="font-size: 1.5rem;">
+                        {{ total_balance|floatformat:2|intcomma }}
+                    </div>
+                    <p class="text-muted mb-0">Outstanding Balance (TZS)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Facilities Table -->
+    <div class="table-card card shadow-sm">
+        <div class="card-header bg-white border-0 pt-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-table me-2 text-primary"></i>Facilities in {{ district.name }}
+                    </h5>
+                    <small class="text-muted">All healthcare facilities under this district</small>
+                </div>
+                <div class="search-box" style="position: relative; width: 250px;">
+                    <i class="bi bi-search position-absolute" style="left: 12px; top: 50%; transform: translateY(-50%); color: #6c757d;"></i>
+                    <input type="text" id="searchFacility" class="form-control" placeholder="Search facilities..." style="padding-left: 35px;">
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="facilityTable">
+                <thead class="table-light">
+                    <tr>
+                        <th><i class="bi bi-hash"></i> #</th>
+                        <th><i class="bi bi-building"></i> Facility Name</th>
+                        <th class="text-end"><i class="bi bi-currency-dollar"></i> Total Invoiced</th>
+                        <th class="text-end"><i class="bi bi-cash-stack"></i> Total Paid</th>
+                        <th class="text-end"><i class="bi bi-scale"></i> Balance</th>
+                        <th class="text-center"><i class="bi bi-percent"></i> Collection Rate</th>
+                        <th><i class="bi bi-gear"></i> Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for facility in facilities %}
+                    <tr onclick="window.location='{% url 'facility_detail' facility.id %}'" style="cursor: pointer;">
+                        <td>{{ forloop.counter }}</td>
+                        <td class="fw-semibold">
+                            <i class="bi bi-hospital text-primary me-2"></i>{{ facility.name }}
+                        </td>
+                        <td class="text-end">{{ facility.total_invoices|floatformat:2|intcomma }}</td>
+                        <td class="text-end text-success">{{ facility.total_paid|floatformat:2|intcomma }}</td>
+                        <td class="text-end {% if facility.balance > 0 %}text-danger fw-bold{% else %}text-success{% endif %}">
+                            {{ facility.balance|floatformat:2|intcomma }}
+                        </td>
+                        <td class="text-center">
+                            <div class="d-flex align-items-center justify-content-center gap-2">
+                                <div class="progress" style="width: 80px; height: 6px;">
+                                    {% with rate=facility.total_paid|div:facility.total_invoices|multiply:100 %}
+                                        <div class="progress-bar bg-success" role="progressbar"
+                                             style="width: {% if facility.total_invoices > 0 %}{{ facility.total_paid|div:facility.total_invoices|multiply:100 }}{% else %}0{% endif %}%"></div>
+                                    {% endwith %}
+                                </div>
+                                <span class="small">
+                                    {% if facility.total_invoices > 0 %}
+                                        {{ facility.total_paid|div:facility.total_invoices|multiply:100|floatformat:0 }}%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </td>
+                        <td>
+                            <a href="{% url 'facility_detail' facility.id %}" class="btn btn-sm btn-primary" onclick="event.stopPropagation()">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <i class="bi bi-building"></i>
+                                <h5 class="mt-3">No Facilities Found</h5>
+                                <p class="text-muted">No facilities have been added to this district yet.</p>
+                                <a href="{% url 'add_facility' %}" class="btn btn-primary mt-2">
+                                    <i class="bi bi-plus-circle me-2"></i>Add New Facility
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if facilities %}
+        <div class="card-footer bg-white border-0 pt-0 pb-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i> Showing {{ facilities|length }} facility{{ facilities|length|pluralize }}
+                </small>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'home' %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Back to Districts
+                    </a>
+                    <a href="{% url 'add_facility' %}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus-circle me-1"></i> Add Facility
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Search functionality
+    document.getElementById('searchFacility')?.addEventListener('keyup', function() {
+        const searchValue = this.value.toLowerCase();
+        const table = document.getElementById('facilityTable');
+        const rows = table.getElementsByTagName('tbody')[0]?.getElementsByTagName('tr');
+
+        if (!rows) return;
+
+        for (let row of rows) {
+            const facilityName = row.cells[1]?.textContent.toLowerCase() || '';
+
+            if (facilityName.includes(searchValue)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    });
+
+    // Prevent row click when clicking on action buttons
+    document.querySelectorAll('.btn-sm').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    });
+</script>
 {% endblock %}

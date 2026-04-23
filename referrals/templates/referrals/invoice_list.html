@@ -1,0 +1,272 @@
+{% extends 'referrals/base.html' %}
+{% load humanize %}
+
+{% block title %}Referral Invoices{% endblock %}
+
+{% block content %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #198754 0%, #157347 100%);
+        border-radius: 20px;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .stats-card {
+        border: none;
+        border-radius: 20px;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+
+    .filter-card {
+        border: none;
+        border-radius: 16px;
+        background: #f8f9fc;
+    }
+
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        width: fit-content;
+    }
+
+    .status-paid { background: #d4edda; color: #155724; }
+    .status-partial { background: #fff3cd; color: #856404; }
+    .status-unpaid { background: #f8d7da; color: #721c24; }
+
+    .table-hover tbody tr {
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+    .table-hover tbody tr:hover {
+        background: rgba(25,135,84,0.05);
+        transform: scale(1.01);
+    }
+</style>
+
+<div class="container-fluid p-0">
+    <!-- Page Header -->
+    <div class="page-header text-white p-5 position-relative">
+        <div style="position: relative; z-index: 1;">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="display-5 fw-bold mb-3">
+                        <i class="bi bi-receipt me-3"></i>Hospitals Invoices
+                    </h1>
+                    <p class="lead mb-0">Manage and track all Hospitals purchases and payments</p>
+                </div>
+                <div class="col-md-4 text-center d-none d-md-block">
+                    <i class="bi bi-cart-plus fs-1"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stats-card card shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <i class="bi bi-cart-plus fs-2 text-primary"></i>
+                        <span class="badge bg-primary bg-opacity-10 text-primary">Total</span>
+                    </div>
+                    <h3 class="mb-0 fw-bold">TZS {{ total_purchased|floatformat:2|intcomma }}</h3>
+                    <small class="text-muted">Total Purchased</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card card shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <i class="bi bi-check-circle fs-2 text-success"></i>
+                        <span class="badge bg-success bg-opacity-10 text-success">Paid</span>
+                    </div>
+                    <h3 class="mb-0 fw-bold">TZS {{ total_paid|floatformat:2|intcomma }}</h3>
+                    <small class="text-muted">Amount Received</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card card shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <i class="bi bi-clock-history fs-2 text-warning"></i>
+                        <span class="badge bg-warning bg-opacity-10 text-warning">Pending</span>
+                    </div>
+                    <h3 class="mb-0 fw-bold">TZS {{ total_balance|floatformat:2|intcomma }}</h3>
+                    <small class="text-muted">Outstanding</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card card shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <i class="bi bi-receipt fs-2 text-info"></i>
+                        <span class="badge bg-info bg-opacity-10 text-info">Count</span>
+                    </div>
+                    <h3 class="mb-0 fw-bold">{{ filter_count|default:0|intcomma }}</h3>
+                    <small class="text-muted">Invoices Found</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="filter-card card shadow-sm mb-4">
+        <div class="card-body p-4">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                        <input type="text" name="query" class="form-control" placeholder="Invoice #, Hospital..." value="{{ search_query }}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Hospital Source</label>
+                    <select name="source" class="form-select">
+                        <option value="">All Sources</option>
+                        {% for s in sources %}
+                        <option value="{{ s.id }}" {% if request.GET.source == s.id|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="">All</option>
+                        <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>Paid</option>
+                        <option value="partial" {% if status_filter == 'partial' %}selected{% endif %}>Partial</option>
+                        <option value="unpaid" {% if status_filter == 'unpaid' %}selected{% endif %}>Unpaid</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">From Date</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">To Date</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-success w-100">Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Invoices Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 pt-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-table me-2 text-success"></i>Hospitals Invoices
+                    </h5>
+                    <small class="text-muted">Manage Hospitals purchase records</small>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'referral:export_excel' %}" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                    </a>
+                    <a href="{% url 'referral:export_pdf' %}" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+                    </a>
+                    <a href="{% url 'referral:clear_filters' %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-eraser me-1"></i> Clear Filters
+                    </a>
+                    <a href="{% url 'referral:invoice_add' %}" class="btn btn-sm btn-success">
+                        <i class="bi bi-plus-circle me-1"></i> Add Invoice
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Invoice #</th>
+                        <th>Hospital Source</th>
+                        <th>Date</th>
+                        <th class="text-end">Purchase</th>
+                        <th class="text-end">Paid</th>
+                        <th class="text-end">Balance</th>
+                        <th>Status</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in invoices %}
+                    <tr>
+                        <td class="fw-semibold">{{ inv.invoice_number }}</td>
+                        <td>{{ inv.referral_source.name }}</td>
+                        <td>{{ inv.invoice_date|date:"Y-m-d" }}</td>
+                        <td class="text-end">TZS {{ inv.purchase_amount|floatformat:2|intcomma }}</td>
+                        <td class="text-end text-success">TZS {{ inv.amount_paid|floatformat:2|intcomma }}</td>
+                        <td class="text-end {% if inv.balance > 0 %}text-danger fw-bold{% endif %}">
+                            TZS {{ inv.balance|floatformat:2|intcomma }}
+                        </td>
+                        <td>
+                            {% if inv.balance == 0 %}
+                                <span class="status-badge status-paid"><i class="bi bi-check-circle-fill"></i> Paid</span>
+                            {% elif inv.amount_paid > 0 %}
+                                <span class="status-badge status-partial"><i class="bi bi-exclamation-triangle-fill"></i> Partial</span>
+                            {% else %}
+                                <span class="status-badge status-unpaid"><i class="bi bi-x-circle-fill"></i> Unpaid</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+    <div class="btn-group btn-group-sm">
+        <a href="{% url 'referral:invoice_detail' inv.id %}" class="btn btn-outline-info" title="View">
+            <i class="bi bi-eye"></i>
+        </a>
+        <a href="{% url 'referral:update_payment' inv.id %}" class="btn btn-outline-warning" title="Update Payment">
+            <i class="bi bi-cash-stack"></i>
+        </a>
+        <a href="{% url 'referral:invoice_edit' inv.id %}" class="btn btn-outline-secondary" title="Edit">
+            <i class="bi bi-pencil"></i>
+        </a>
+        <!-- Delete button - fixed version -->
+        <a href="{% url 'referral:invoice_delete' inv.id %}"
+           class="btn btn-outline-danger"
+           title="Delete Invoice"
+           onclick="return confirm('Are you sure you want to delete invoice {{ inv.invoice_number }}? This action cannot be undone!');">
+            <i class="bi bi-trash"></i>
+        </a>
+    </div>
+</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="bi bi-inbox fs-1 text-muted"></i>
+                            <h5 class="mt-3">No Hospitals Invoices Found</h5>
+                            <p class="text-muted">Get started by adding your first Hospitals invoice.</p>
+                            <a href="{% url 'referral:invoice_add' %}" class="btn btn-success mt-2">
+                                <i class="bi bi-plus-circle me-2"></i>Add Invoice
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

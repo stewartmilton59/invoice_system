@@ -1,0 +1,193 @@
+{% extends 'referrals/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+    .form-card {
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        overflow: hidden;
+    }
+
+    .form-header {
+        background: linear-gradient(135deg, #198754 0%, #157347 100%);
+        padding: 1.5rem;
+        color: white;
+    }
+
+    .form-label {
+        font-weight: 600;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+        color: #495057;
+    }
+
+    .form-control, .form-select {
+        border-radius: 10px;
+        border: 1px solid #e9ecef;
+        padding: 0.6rem 1rem;
+        transition: all 0.3s;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #198754;
+        box-shadow: 0 0 0 0.2rem rgba(25,135,84,0.1);
+    }
+
+    .required-field::after {
+        content: "*";
+        color: #dc3545;
+        margin-left: 4px;
+    }
+
+    .help-text {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+
+    .errorlist {
+        color: #dc3545;
+        font-size: 0.75rem;
+        list-style: none;
+        padding-left: 0;
+        margin-top: 0.25rem;
+        margin-bottom: 0;
+    }
+</style>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="form-card card shadow-sm">
+                <div class="form-header">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-receipt fs-2"></i>
+                        <div>
+                            <h4 class="mb-0 fw-bold">{{ title }}</h4>
+                            <p class="mb-0 opacity-75 small">Fill in the Hospitals invoice details below</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" id="invoiceForm">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="row g-3">
+                            <!-- Hospital Source - FIXED: changed from referrals_source to referral_source -->
+                            <div class="col-md-12">
+                                <label for="{{ form.referral_source.id_for_label }}" class="form-label required-field">
+                                    Hospital Source
+                                </label>
+                                {{ form.referral_source }}
+                                {% if form.referral_source.errors %}
+                                    <ul class="errorlist">{{ form.referral_source.errors }}</ul>
+                                {% endif %}
+                                <div class="help-text">Select the hospital source for this invoice</div>
+                            </div>
+
+                            <!-- Invoice Number -->
+                            <div class="col-md-6">
+                                <label for="{{ form.invoice_number.id_for_label }}" class="form-label required-field">
+                                    Invoice Number
+                                </label>
+                                {{ form.invoice_number }}
+                                {% if form.invoice_number.errors %}
+                                    <ul class="errorlist">{{ form.invoice_number.errors }}</ul>
+                                {% endif %}
+                                <div class="help-text">Unique invoice identifier</div>
+                            </div>
+
+                            <!-- Invoice Date -->
+                            <div class="col-md-6">
+                                <label for="{{ form.invoice_date.id_for_label }}" class="form-label required-field">
+                                    Invoice Date
+                                </label>
+                                {{ form.invoice_date }}
+                                {% if form.invoice_date.errors %}
+                                    <ul class="errorlist">{{ form.invoice_date.errors }}</ul>
+                                {% endif %}
+                            </div>
+
+                            <!-- Purchase Amount -->
+                            <div class="col-md-6">
+                                <label for="{{ form.purchase_amount.id_for_label }}" class="form-label required-field">
+                                    Purchase Amount (TZS)
+                                </label>
+                                {{ form.purchase_amount }}
+                                {% if form.purchase_amount.errors %}
+                                    <ul class="errorlist">{{ form.purchase_amount.errors }}</ul>
+                                {% endif %}
+                                <div class="help-text">Total amount of the purchase</div>
+                            </div>
+
+                            <!-- Amount Paid -->
+                            <div class="col-md-6">
+                                <label for="{{ form.amount_paid.id_for_label }}" class="form-label">
+                                    Amount Paid (TZS)
+                                </label>
+                                {{ form.amount_paid }}
+                                {% if form.amount_paid.errors %}
+                                    <ul class="errorlist">{{ form.amount_paid.errors }}</ul>
+                                {% endif %}
+                                <div class="help-text">Amount already paid (leave 0 if unpaid)</div>
+                            </div>
+
+                            <!-- Payment Date -->
+                            <div class="col-md-6">
+                                <label for="{{ form.payment_date.id_for_label }}" class="form-label">
+                                    Payment Date
+                                </label>
+                                {{ form.payment_date }}
+                                {% if form.payment_date.errors %}
+                                    <ul class="errorlist">{{ form.payment_date.errors }}</ul>
+                                {% endif %}
+                                <div class="help-text">Date when payment was received (if any)</div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                            <a href="{% url 'referral:invoice_list' %}" class="btn btn-outline-secondary px-4">
+                                <i class="bi bi-x-circle me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-success px-4">
+                                <i class="bi bi-check-circle me-1"></i> Save Invoice
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Auto-calculate balance preview and validate payment
+    document.addEventListener('DOMContentLoaded', function() {
+        const purchaseAmount = document.getElementById('{{ form.purchase_amount.id_for_label }}');
+        const amountPaid = document.getElementById('{{ form.amount_paid.id_for_label }}');
+
+        function validatePayment() {
+            if (purchaseAmount.value && amountPaid.value) {
+                if (parseFloat(amountPaid.value) > parseFloat(purchaseAmount.value)) {
+                    amountPaid.setCustomValidity('Amount paid cannot exceed purchase amount');
+                } else {
+                    amountPaid.setCustomValidity('');
+                }
+            }
+        }
+
+        purchaseAmount.addEventListener('input', validatePayment);
+        amountPaid.addEventListener('input', validatePayment);
+    });
+</script>
+{% endblock %}

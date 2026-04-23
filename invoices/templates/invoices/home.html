@@ -1,28 +1,1096 @@
-{% extends 'base.html' %}
-{% block content %}
-<h1>Districts</h1>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>District</th>
-            <th>TIN</th>
-            <th>Total Invoiced</th>
-            <th>Total Paid</th>
-            <th>Balance</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for district in districts %}
-        <tr>
-            <td>{{ district.name }}</td>
-            <td>{{ district.tin_number }}</td>
-            <td>{{ district.total_invoices|default:0|floatformat:2 }}</td>
-            <td>{{ district.total_paid|default:0|floatformat:2 }}</td>
-            <td>{{ district.total_invoices|default:0|add:district.total_paid|default:0|floatformat:2 }}</td>
-            <td><a href="{% url 'district_detail' district.id %}" class="btn btn-sm btn-primary">View</a></td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% endblock %}
+{% load static %}
+{% load humanize %}
+{% load math_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="{% static 'icon.png' %}">
+    <title>Robby One Pharmacy - Financial Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- jsvectormap for map -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/css/jsvectormap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/js/jsvectormap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.5.3/dist/maps/world.js"></script>
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --success-color: #198754;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #0dcaf0;
+            --dark-bg: #1a1e2c;
+            --sidebar-bg: #0f1117;
+            --light-bg: #f8f9fc;
+            --light-text: #212529;
+            --dark-text: #e9ecef;
+        }
+
+        body {
+            background: var(--light-bg);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* Dark theme classes */
+        body.dark-theme {
+            background: #1a1e2c;
+            color: #e9ecef;
+        }
+        body.dark-theme .card,
+        body.dark-theme .chart-card,
+        body.dark-theme .stats-card {
+            background: #2c303a;
+            border-color: #444;
+        }
+        body.dark-theme .text-muted {
+            color: #adb5bd !important;
+        }
+        body.dark-theme .table-light {
+            background-color: #343a40;
+            color: #e9ecef;
+        }
+        body.dark-theme .table-hover tbody tr:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .sidebar {
+            background: linear-gradient(135deg, #0f1117 0%, #1a1e2c 100%);
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link {
+            transition: all 0.3s;
+            border-radius: 8px;
+            margin-bottom: 4px;
+        }
+        .sidebar .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+
+        .stats-card {
+            border: none;
+            border-radius: 16px;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .stats-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-color);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(13,110,253,0.1);
+        }
+
+        .chart-card {
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+        }
+        .chart-card:hover {
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .welcome-banner {
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .welcome-banner::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 300px;
+            height: 300px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+
+        .quick-action-btn {
+            border-radius: 12px;
+            padding: 12px;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        .quick-action-btn:hover {
+            transform: translateY(-3px);
+            background: rgba(13,110,253,0.1);
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-paid { background: #d4edda; color: #155724; }
+        .badge-partial { background: #fff3cd; color: #856404; }
+        .badge-unpaid { background: #f8d7da; color: #721c24; }
+
+        .dropdown-item {
+            transition: all 0.2s;
+            border-radius: 8px;
+            margin: 2px 8px;
+            width: calc(100% - 16px);
+        }
+        .dropdown-item:hover {
+            background: rgba(13,110,253,0.1);
+            transform: translateX(3px);
+        }
+        .dropdown-item.text-danger:hover {
+            background: rgba(220,53,69,0.1);
+        }
+        .dropdown-menu {
+            animation: dropdownSlide 0.2s ease;
+        }
+        @keyframes dropdownSlide {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Search bar in sidebar */
+        .sidebar-search {
+            position: relative;
+            margin: 1rem 0;
+        }
+        .sidebar-search input {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 20px;
+            padding: 8px 12px 8px 35px;
+            color: white;
+            width: 100%;
+        }
+        .sidebar-search input::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+        .sidebar-search i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255,255,255,0.6);
+        }
+
+        /* Notifications */
+        .notification-bell {
+            position: relative;
+            cursor: pointer;
+        }
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .notification-dropdown {
+            width: 320px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        /* Spinner */
+        .spinner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar { width: 100% !important; height: auto !important; position: relative; }
+            .flex-grow-1 { margin-left: 0 !important; }
+            .notification-dropdown { width: 280px; right: 0; left: auto; }
+        }
+    </style>
+</head>
+<body>
+<div class="spinner-overlay" id="spinner">
+    <div class="spinner-border text-light" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
+<div class="d-flex">
+    <!-- Sidebar with Scroll -->
+    <div class="sidebar text-white p-4 position-sticky top-0" style="width: 280px; height: 100vh; overflow-y: auto;">
+        <div class="mb-4 text-center">
+            <i class="bi bi-building fs-1"></i>
+            <h5 class="mt-2 mb-0">Robby One Pharmacy</h5>
+            <small class="text-white-50">Financial Management System</small>
+        </div>
+        <!-- Search Bar in Sidebar -->
+        <div class="sidebar-search">
+            <i class="bi bi-search"></i>
+            <input type="text" id="sidebarSearch" placeholder="Search district, facility, invoice...">
+        </div>
+        <hr class="text-white-50">
+        <nav class="nav flex-column">
+            <a href="{% url 'home' %}" class="nav-link text-white active">
+                <i class="bi bi-speedometer2 me-2"></i> Dashboard
+            </a>
+            <a href="{% url 'all_invoices' %}" class="nav-link text-white">
+                <i class="bi bi-receipt me-2"></i> All Invoices
+            </a>
+            <a href="{% url 'dashboard' %}" class="nav-link text-white">
+                <i class="bi bi-graph-up me-2"></i> Analytics
+            </a>
+            <a class="nav-link text-white" href="{% url 'referral:dashboard' %}">
+            <i class="bi bi-share me-1"></i> Hospitals
+            </a>
+            <a href="{% url 'signup' %}" class="nav-link text-white">
+                <i class="bi bi-person-plus me-2"></i> Create User
+            </a>
+            <hr class="text-white-50">
+            <span class="nav-link text-white-50 small"><i class="bi bi-database me-2"></i>Data Management</span>
+            <a href="{% url 'district_list' %}" class="nav-link text-white">
+                <i class="bi bi-building me-2"></i> Manage Districts
+            </a>
+            <a href="{% url 'facility_list' %}" class="nav-link text-white">
+                <i class="bi bi-hospital me-2"></i> Manage Facilities
+            </a>
+            <a href="{% url 'add_invoice' %}" class="nav-link text-white">
+                <i class="bi bi-plus-circle me-2"></i> Add Invoice
+            </a>
+            <hr class="text-white-50">
+            <span class="nav-link text-white-50 small"><i class="bi bi-download me-2"></i>Reports</span>
+            <a href="{% url 'export_excel' %}" class="nav-link text-white">
+                <i class="bi bi-file-earmark-excel me-2"></i> Export Excel
+            </a>
+            <a href="{% url 'export_pdf' %}" class="nav-link text-white">
+                <i class="bi bi-file-earmark-pdf me-2"></i> Export PDF
+            </a>
+            <hr class="text-white-50">
+            {% if user.is_authenticated %}
+                <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-link nav-link text-white" style="padding: 0; border: none;">
+                        <i class="bi bi-box-arrow-right me-2"></i> Logout
+                    </button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}" class="nav-link text-white">
+                    <i class="bi bi-box-arrow-in-right me-2"></i> Login
+                </a>
+            {% endif %}
+            <div class="mt-3"></div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-grow-1 p-4" style="background: var(--light-bg);">
+        <!-- Top bar -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-0 fw-bold">Financial Dashboard</h2>
+                <small class="text-muted">Welcome back! Here's what's happening with your finances today.</small>
+            </div>
+            <div class="d-flex gap-3">
+
+                <!-- Theme Toggle -->
+                <button id="themeToggle" class="btn btn-light border rounded-pill px-3">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+
+      <!-- Notification Bell -->
+<div class="dropdown notification-bell">
+    <a href="#" class="text-dark" data-bs-toggle="dropdown" id="notificationBell">
+        <i class="bi bi-bell fs-5"></i>
+        {% if unread_notifications_count > 0 %}
+            <span class="notification-badge">{{ unread_notifications_count }}</span>
+        {% endif %}
+    </a>
+    <div class="dropdown-menu dropdown-menu-end notification-dropdown p-0">
+        <div class="p-3 border-bottom fw-bold d-flex justify-content-between align-items-center">
+            <span>Notifications</span>
+            <div>
+                {% if unread_notifications_count > 0 %}
+                    <span class="badge bg-primary ms-2" id="unreadCount">{{ unread_notifications_count }} new</span>
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-link text-decoration-none" id="markAllReadBtn" style="font-size: 0.75rem;">
+                    Mark all read
+                </button>
+            </div>
+        </div>
+        <div id="notificationList" class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
+            {% for note in recent_notifications %}
+                <a href="{{ note.link|default:'#' }}" class="list-group-item list-group-item-action notification-item {% if not note.is_read %}list-group-item-primary unread{% endif %}" data-id="{{ note.id }}">
+                    <div class="d-flex w-100 justify-content-between">
+                        <small class="text-muted">{{ note.created_at|timesince }} ago</small>
+                        <button class="btn btn-sm btn-link text-danger delete-notification" data-id="{{ note.id }}" style="font-size: 0.7rem;">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                    <div class="mt-1">
+                        {% if note.notification_type == 'success' %}
+                            <i class="bi bi-check-circle-fill text-success me-1"></i>
+                        {% elif note.notification_type == 'warning' %}
+                            <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>
+                        {% elif note.notification_type == 'danger' %}
+                            <i class="bi bi-x-circle-fill text-danger me-1"></i>
+                        {% else %}
+                            <i class="bi bi-info-circle-fill text-info me-1"></i>
+                        {% endif %}
+                        <strong>{{ note.title }}</strong>
+                    </div>
+                    <p class="mb-0 small">{{ note.message|truncatechars:80 }}</p>
+                </a>
+            {% empty %}
+                <div class="list-group-item text-muted text-center" id="emptyNotificationMsg">No notifications</div>
+            {% endfor %}
+        </div>
+        <div class="p-2 text-center border-top">
+            <a href="{% url 'notifications' %}" class="small">View all notifications</a>
+        </div>
+    </div>
+</div>
+
+<script>
+// Helper function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Function to update notification badge count
+function updateNotificationCount() {
+    const visibleNotifications = document.querySelectorAll('.notification-item:not(.deleted)').length;
+    const badge = document.querySelector('.notification-badge');
+    const unreadBadge = document.getElementById('unreadCount');
+    const unreadNotifications = document.querySelectorAll('.notification-item.unread:not(.deleted)').length;
+
+    // Update main bell badge
+    if (unreadNotifications > 0) {
+        if (badge) {
+            badge.textContent = unreadNotifications;
+        } else {
+            const newBadge = document.createElement('span');
+            newBadge.className = 'notification-badge';
+            newBadge.textContent = unreadNotifications;
+            document.querySelector('.notification-bell a').appendChild(newBadge);
+        }
+    } else {
+        if (badge) badge.remove();
+    }
+
+    // Update dropdown badge
+    if (unreadBadge) {
+        if (unreadNotifications > 0) {
+            unreadBadge.textContent = `${unreadNotifications} new`;
+        } else {
+            unreadBadge.remove();
+        }
+    }
+}
+
+// Auto-delete old notifications when dropdown is opened
+document.getElementById('notificationBell')?.addEventListener('shown.bs.dropdown', function() {
+    fetch('{% url "delete_old_notifications" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.deleted_count > 0) {
+            // Reload the page to refresh notification list
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error:', error));
+});
+
+// Mark all as read button
+document.getElementById('markAllReadBtn')?.addEventListener('click', function() {
+    fetch('{% url "mark_all_as_read" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update UI - remove highlight from all unread notifications
+            document.querySelectorAll('.notification-item.unread').forEach(item => {
+                item.classList.remove('list-group-item-primary', 'unread');
+            });
+            // Update badge
+            updateNotificationCount();
+        }
+    })
+    .catch(error => console.error('Error:', error));
+});
+
+// Delete individual notification - INSTANT DELETE (no refresh needed)
+function setupDeleteButtons() {
+    document.querySelectorAll('.delete-notification').forEach(btn => {
+        // Remove existing event listeners to avoid duplicates
+        btn.removeEventListener('click', handleDeleteClick);
+        // Add new event listener
+        btn.addEventListener('click', handleDeleteClick);
+    });
+}
+
+function handleDeleteClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const btn = this;
+    const notificationId = btn.dataset.id;
+    const notificationItem = btn.closest('.notification-item');
+
+    // Add visual feedback - fade out immediately
+    notificationItem.style.transition = 'all 0.3s ease';
+    notificationItem.style.opacity = '0.5';
+    notificationItem.style.backgroundColor = '#f8d7da';
+
+    fetch(`/notifications/${notificationId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Animate removal
+            notificationItem.style.transform = 'translateX(100%)';
+            notificationItem.style.opacity = '0';
+
+            // Remove from DOM after animation
+            setTimeout(() => {
+                notificationItem.remove();
+
+                // Update badge count immediately
+                updateNotificationCount();
+
+                // Check if no notifications left
+                const remainingNotifications = document.querySelectorAll('.notification-item').length;
+                const notificationList = document.getElementById('notificationList');
+
+                if (remainingNotifications === 0) {
+                    notificationList.innerHTML = '<div class="list-group-item text-muted text-center" id="emptyNotificationMsg">No notifications</div>';
+                }
+
+                // Show success toast (optional)
+                showNotificationToast('Notification deleted successfully');
+            }, 300);
+        } else {
+            // Restore if failed
+            notificationItem.style.opacity = '1';
+            notificationItem.style.backgroundColor = '';
+            showNotificationToast('Failed to delete notification', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        notificationItem.style.opacity = '1';
+        notificationItem.style.backgroundColor = '';
+        showNotificationToast('Error deleting notification', 'error');
+    });
+}
+
+// Optional: Show toast message
+function showNotificationToast(message, type = 'success') {
+    let toastContainer = document.querySelector('.notification-toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'notification-toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+
+    const toastEl = document.createElement('div');
+    toastEl.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0 show`;
+    toastEl.setAttribute('role', 'alert');
+    toastEl.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi bi-${type === 'success' ? 'check-circle' : 'x-circle'} me-2"></i>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+
+    toastContainer.appendChild(toastEl);
+
+    setTimeout(() => {
+        toastEl.remove();
+    }, 2000);
+}
+
+// Initialize delete buttons when page loads and after any dynamic updates
+document.addEventListener('DOMContentLoaded', function() {
+    setupDeleteButtons();
+
+    // Watch for dynamically added notifications (if any)
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length) {
+                setupDeleteButtons();
+            }
+        });
+    });
+
+    observer.observe(document.getElementById('notificationList'), { childList: true, subtree: true });
+});
+</script>
+
+                <!-- User Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-light border rounded-pill px-4 dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
+                        {% if user.profile.profile_picture %}
+                            <img src="{{ user.profile.profile_picture.url }}" class="rounded-circle" width="32" height="32" style="object-fit: cover;">
+                        {% else %}
+                            <i class="bi bi-person-circle fs-5"></i>
+                        {% endif %}
+                        <span>{{ user.get_full_name|default:user.username }}</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" style="border-radius: 12px; min-width: 250px;">
+                        <li><div class="dropdown-item-text"><div class="d-flex align-items-center gap-2 mb-2">
+                            {% if user.profile.profile_picture %}
+                                <img src="{{ user.profile.profile_picture.url }}" class="rounded-circle" width="40" height="40">
+                            {% else %}
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width:40px;height:40px;"><i class="bi bi-person text-white fs-5"></i></div>
+                            {% endif %}
+                            <div><strong class="d-block">{{ user.get_full_name|default:user.username }}</strong><small class="text-muted">{{ user.email }}</small></div>
+                        </div></div></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item py-2" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i> My Profile</a></li>
+                        <li><a class="dropdown-item py-2" href="{% url 'profile_settings' %}"><i class="bi bi-gear me-2"></i> Account Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="post" action="{% url 'logout' %}">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item text-danger py-2"><i class="bi bi-box-arrow-right me-2"></i> Logout</button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Welcome Banner -->
+        <div class="welcome-banner text-white p-5 mb-4 position-relative">
+            <div style="position: relative; z-index: 1;">
+                <h1 class="display-5 fw-bold mb-3">👋 Hello {{ user.get_full_name|default:user.username|default:"Guest" }},</h1>
+                <p class="lead mb-4">Welcome to the Robby One Pharmacy Secretariat Financial Dashboard. Monitor invoices, track payments, and gain valuable insights to optimize your financial operations.</p>
+                <div class="d-flex gap-3">
+                    <a href="{% url 'all_invoices' %}" class="btn btn-light btn-lg px-4"><i class="bi bi-receipt me-2"></i> View Invoices</a>
+                    <a href="{% url 'dashboard' %}" class="btn btn-outline-light btn-lg px-4"><i class="bi bi-graph-up me-2"></i> Analytics</a>
+                    <a href="{% url 'referral:dashboard' %}" class="btn btn-outline-light btn-lg px-4"><i class="bi bi-share me-1"></i> Hospital</a>
+                    <a href="{% url 'add_invoice' %}" class="btn btn-outline-light btn-lg px-4"><i class="bi bi-plus-circle me-2"></i> Add Invoice</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monthly Comparison Cards -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="stats-card card h-100 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="stat-icon bg-primary bg-opacity-10"><i class="bi bi-receipt fs-3 text-primary"></i></div>
+                            <span class="badge bg-primary bg-opacity-10 text-primary">This Month</span>
+                        </div>
+                        <h3 class="mb-0 fw-bold">{{ total_invoices_this_month|intcomma }}</h3>
+                        <p class="text-muted mb-0 small">Invoices</p>
+                        <div class="mt-3">
+                            <small class="{% if invoice_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                <i class="bi bi-arrow-{% if invoice_change >= 0 %}up{% else %}down{% endif %}"></i> {{ invoice_change|floatformat:1 }}%
+                            </small>
+                            <small class="text-muted ms-2">vs last month</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card card h-100 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="stat-icon bg-success bg-opacity-10"><i class="bi bi-currency-dollar fs-3 text-success"></i></div>
+                            <span class="badge bg-success bg-opacity-10 text-success">Revenue</span>
+                        </div>
+                        <h3 class="mb-0 fw-bold">{{ revenue_this_month|floatformat:2|intcomma }}</h3>
+                        <p class="text-muted mb-0 small">Invoiced (TZS)</p>
+                        <div class="mt-3">
+                            <small class="{% if revenue_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                <i class="bi bi-arrow-{% if revenue_change >= 0 %}up{% else %}down{% endif %}"></i> {{ revenue_change|floatformat:1 }}%
+                            </small>
+                            <small class="text-muted ms-2">vs last month</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card card h-100 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="stat-icon bg-info bg-opacity-10"><i class="bi bi-cash-stack fs-3 text-info"></i></div>
+                            <span class="badge bg-info bg-opacity-10 text-info">Collected</span>
+                        </div>
+                        <h3 class="mb-0 fw-bold">{{ paid_this_month|floatformat:2|intcomma }}</h3>
+                        <p class="text-muted mb-0 small">Paid (TZS)</p>
+                        <div class="mt-3">
+                            <small class="{% if paid_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                <i class="bi bi-arrow-{% if paid_change >= 0 %}up{% else %}down{% endif %}"></i> {{ paid_change|floatformat:1 }}%
+                            </small>
+                            <small class="text-muted ms-2">vs last month</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card card h-100 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="stat-icon bg-warning bg-opacity-10"><i class="bi bi-exclamation-triangle fs-3 text-warning"></i></div>
+                            <span class="badge bg-warning bg-opacity-10 text-warning">Outstanding</span>
+                        </div>
+                        <h3 class="mb-0 fw-bold">{{ outstanding_this_month|floatformat:2|intcomma }}</h3>
+                        <p class="text-muted mb-0 small">Outstanding (TZS)</p>
+                        <div class="mt-3">
+                            <small class="{% if outstanding_change <= 0 %}text-success{% else %}text-danger{% endif %}">
+                                <i class="bi bi-arrow-{% if outstanding_change <= 0 %}down{% else %}up{% endif %}"></i> {{ outstanding_change|floatformat:1 }}%
+                            </small>
+                            <small class="text-muted ms-2">vs last month</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional KPIs Row -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="stats-card card h-100 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="stat-icon bg-secondary bg-opacity-10"><i class="bi bi-calendar-check fs-3 text-secondary"></i></div>
+                            <span class="badge bg-secondary bg-opacity-10 text-secondary">Avg Days to Pay</span>
+                        </div>
+                        <h3 class="mb-0 fw-bold">{{ avg_days_to_pay|floatformat:0 }}</h3>
+                        <p class="text-muted mb-0 small">days</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card card h-100 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="stat-icon bg-success bg-opacity-10"><i class="bi bi-trophy fs-3 text-success"></i></div>
+                            <span class="badge bg-success bg-opacity-10 text-success">Top District</span>
+                        </div>
+                        <h3 class="mb-0 fw-bold">{{ top_district.name|default:"N/A" }}</h3>
+                        <p class="text-muted mb-0 small">{{ top_district.total|floatformat:2|intcomma }} TZS</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card card h-100 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="stat-icon bg-info bg-opacity-10"><i class="bi bi-percent fs-3 text-info"></i></div>
+                            <span class="badge bg-info bg-opacity-10 text-info">Collection Efficiency</span>
+                        </div>
+                        <h3 class="mb-0 fw-bold">{{ collection_efficiency|floatformat:1 }}%</h3>
+                        <p class="text-muted mb-0 small">Paid / Total Invoiced</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card card h-100 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="stat-icon bg-primary bg-opacity-10"><i class="bi bi-graph-up fs-3 text-primary"></i></div>
+                            <span class="badge bg-primary bg-opacity-10 text-primary">Cash Flow Projection</span>
+                        </div>
+                        <h3 class="mb-0 fw-bold">{{ cash_flow_projection|floatformat:2|intcomma }}</h3>
+                        <p class="text-muted mb-0 small">Next Month (TZS)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- New Donut Chart: Payment Status Distribution -->
+        <div class="row g-4 mb-4">
+            <div class="col-xl-6">
+                <div class="chart-card card shadow-sm">
+                    <div class="card-header bg-white border-0 pt-4">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-pie-chart me-2 text-primary"></i>Payment Status Distribution</h5>
+                        <small class="text-muted">Paid, Partial, Unpaid invoices</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="statusDonutChart"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-6">
+                <div class="chart-card card shadow-sm">
+                    <div class="card-header bg-white border-0 pt-4">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-map me-2 text-primary"></i>District Performance Map</h5>
+                        <small class="text-muted">Color intensity = total invoiced</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="districtMap" style="height: 350px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Existing Charts Row (Revenue Trend, District Pie) remain -->
+        <div class="row g-4 mb-4">
+            <div class="col-xl-8">
+                <div class="chart-card card shadow-sm">
+                    <div class="card-header bg-white border-0 pt-4">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-graph-up me-2 text-primary"></i>Revenue Trend Analysis</h5>
+                        <small class="text-muted">Last 12 months performance tracking</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="revenueChart"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-4">
+                <div class="chart-card card shadow-sm">
+                    <div class="card-header bg-white border-0 pt-4">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-pie-chart me-2 text-primary"></i>Distribution by District</h5>
+                        <small class="text-muted">Invoice value breakdown</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="districtChart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Metrics Row (Existing) -->
+        <div class="row g-4 mb-4">
+            <div class="col-xl-6">
+                <div class="chart-card card shadow-sm">
+                    <div class="card-header bg-white border-0 pt-4">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-trophy me-2 text-primary"></i>Top 10 Facilities by Outstanding Balance</h5>
+                        <small class="text-muted">Facilities with highest pending payments</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="balanceChart"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-6">
+                <div class="chart-card card shadow-sm">
+                    <div class="card-header bg-white border-0 pt-4">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>Payment Performance</h5>
+                        <small class="text-muted">Collection rate and payment trends</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center mb-4">
+                            <div class="col-4">
+                                <h4 class="mb-0 text-success">{{ total_paid|floatformat:0|intcomma }}</h4>
+                                <small class="text-muted">Total Paid</small>
+                            </div>
+                            <div class="col-4">
+                                <h4 class="mb-0 text-warning">{{ total_outstanding|floatformat:0|intcomma }}</h4>
+                                <small class="text-muted">Outstanding</small>
+                            </div>
+                            <div class="col-4">
+                                <h4 class="mb-0 text-primary">
+                                    {% if total_invoiced > 0 %}
+                                        {{ total_paid|div:total_invoiced|multiply:100|floatformat:1 }}%
+                                    {% else %}0%{% endif %}
+                                </h4>
+                                <small class="text-muted">Collection Rate</small>
+                            </div>
+                        </div>
+                        <div class="progress mb-3" style="height:30px">
+                            <div class="progress-bar bg-success" style="width: {% if total_invoiced > 0 %}{{ total_paid|div:total_invoiced|multiply:100 }}{% else %}0{% endif %}%">
+                                {{ total_paid|div:total_invoiced|multiply:100|floatformat:1 }}% Collected
+                            </div>
+                            <div class="progress-bar bg-warning" style="width: {% if total_invoiced > 0 %}{{ total_outstanding|div:total_invoiced|multiply:100 }}{% else %}0{% endif %}%">
+                                {{ total_outstanding|div:total_invoiced|multiply:100|floatformat:1 }}% Outstanding
+                            </div>
+                        </div>
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Collection Goal:</strong> Reach 90% collection rate by end of quarter. Current rate: {{ total_paid|div:total_invoiced|multiply:100|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Invoices Table -->
+        <div class="card chart-card shadow-sm">
+            <div class="card-header bg-white border-0 pt-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-table me-2 text-primary"></i>Recent Transactions</h5>
+                    <small class="text-muted">Latest 10 invoices processed</small>
+                </div>
+                <a href="{% url 'all_invoices' %}" class="btn btn-sm btn-outline-primary">View All <i class="bi bi-arrow-right ms-1"></i></a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th><i class="bi bi-hash"></i> Invoice</th>
+                            <th><i class="bi bi-building"></i> Facility</th>
+                            <th><i class="bi bi-geo-alt"></i> District</th>
+                            <th><i class="bi bi-calendar"></i> Date</th>
+                            <th class="text-end"><i class="bi bi-currency-dollar"></i> Amount</th>
+                            <th class="text-end"><i class="bi bi-cash-stack"></i> Paid</th>
+                            <th class="text-end"><i class="bi bi-scale"></i> Balance</th>
+                            <th><i class="bi bi-check-circle"></i> Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in invoices|slice:":10" %}
+                        <tr onclick="window.location='{% url 'facility_detail' invoice.facility.id %}'" style="cursor: pointer;">
+                            <td class="fw-semibold">{{ invoice.invoice_number }}</td>
+                            <td>{{ invoice.facility.name|truncatechars:30 }}</td>
+                            <td>{{ invoice.facility.district.name }}</td>
+                            <td>{{ invoice.invoice_date }}</td>
+                            <td class="text-end">{{ invoice.invoice_amount|floatformat:2|intcomma }}</td>
+                            <td class="text-end text-success">{{ invoice.amount_paid|floatformat:2|intcomma }}</td>
+                            <td class="text-end {% if invoice.balance > 0 %}text-danger fw-bold{% else %}text-success{% endif %}">
+                                {{ invoice.balance|floatformat:2|intcomma }}
+                            </td>
+                            <td>
+                                {% if invoice.balance == 0 %}
+                                    <span class="status-badge badge-paid"><i class="bi bi-check-circle-fill me-1"></i> Paid</span>
+                                {% elif invoice.amount_paid > 0 %}
+                                    <span class="status-badge badge-partial"><i class="bi bi-exclamation-triangle-fill me-1"></i> Partial</span>
+                                {% else %}
+                                    <span class="status-badge badge-unpaid"><i class="bi bi-x-circle-fill me-1"></i> Unpaid</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="text-center py-5"><i class="bi bi-inbox fs-1 text-muted"></i><p class="mt-2">No invoices found.</p></td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr class="fw-bold">
+                            <td colspan="4" class="text-end">Summary:</td>
+                            <td class="text-end">{{ invoices|slice:":10"|sum_attribute:'invoice_amount'|floatformat:2|intcomma }}</td>
+                            <td class="text-end text-success">{{ invoices|slice:":10"|sum_attribute:'amount_paid'|floatformat:2|intcomma }}</td>
+                            <td class="text-end text-danger">{{ invoices|slice:":10"|sum_attribute:'balance'|floatformat:2|intcomma }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- User Activity Log -->
+        <div class="card chart-card shadow-sm mt-4">
+            <div class="card-header bg-white border-0 pt-4">
+                <h5 class="mb-0 fw-bold"><i class="bi bi-clock-history me-2 text-primary"></i>Recent Activity</h5>
+                <small class="text-muted">Latest user actions in the system</small>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for activity in recent_activities %}
+                        <div class="list-group-item bg-transparent">
+                            <div class="d-flex w-100 justify-content-between">
+                                <small class="text-muted">{{ activity.created_at|timesince }} ago</small>
+                            </div>
+                            <p class="mb-1">{{ activity.message }}</p>
+                        </div>
+                    {% empty %}
+                        <div class="text-center text-muted py-3">No recent activity</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-4 text-center text-muted small py-3">
+            <hr>
+            <p class="mb-0">© {% now "Y" %} Robby One Pharmacy Secretariat - Financial Management System. All rights reserved.</p>
+            <p class="mb-0">Last updated: {% now "F j, Y, g:i a" %}</p>
+        </footer>
+    </div>
+</div>
+
+<script>
+    // --- Helper: Show/Hide Spinner ---
+    function showSpinner() { document.getElementById('spinner').style.display = 'flex'; }
+    function hideSpinner() { document.getElementById('spinner').style.display = 'none'; }
+
+    // --- Theme Toggle ---
+    const themeToggle = document.getElementById('themeToggle');
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    if (currentTheme === 'dark') document.body.classList.add('dark-theme');
+    themeToggle.addEventListener('click', () => {
+        document.body.classList.toggle('dark-theme');
+        const newTheme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+        localStorage.setItem('theme', newTheme);
+    });
+
+    // --- Sidebar Search ---
+    document.getElementById('sidebarSearch').addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase();
+        // Redirect to search page or filter invoices? For simplicity, we'll redirect to the invoices page with query.
+        if (query.length > 2) {
+            window.location.href = "{% url 'all_invoices' %}?query=" + encodeURIComponent(query);
+        }
+    });
+
+    // --- Revenue Chart ---
+    const months = {{ months|safe }};
+    const totals = {{ monthly_totals|safe }};
+    const paid = {{ monthly_paid|safe }};
+    const revenueOptions = {
+        series: [{ name: 'Invoiced', data: totals, type: 'line' }, { name: 'Paid', data: paid, type: 'area' }],
+        chart: { type: 'line', height: 350, toolbar: { show: true }, zoom: { enabled: true }, events: { dataPointSelection: function(event, chartContext, config) {
+            if (config.dataPointIndex >= 0) {
+                const month = months[config.dataPointIndex];
+                window.location.href = "{% url 'all_invoices' %}?start_date=" + month + "-01&end_date=" + month + "-31";
+            }
+        } } },
+        stroke: { curve: 'smooth', width: [3,0] },
+        fill: { type: ['solid','gradient'], gradient: { shadeIntensity: 0.5, opacityFrom: 0.5, opacityTo: 0.1 } },
+        xaxis: { categories: months, title: { text: 'Month' } },
+        yaxis: { title: { text: 'Amount (TZS)' }, labels: { formatter: (val) => val.toLocaleString() } },
+        colors: ['#0d6efd','#198754'],
+        tooltip: { y: { formatter: (val) => 'TZS ' + val.toLocaleString() } },
+        legend: { position: 'top' }
+    };
+    new ApexCharts(document.querySelector("#revenueChart"), revenueOptions).render();
+
+    // --- District Pie Chart ---
+    const districtData = {{ district_data|safe }};
+    const districtIds = {{ district_ids|safe }};
+    const pieOptions = {
+        series: districtData.map(d => d.total),
+        labels: districtData.map(d => d.name),
+        chart: { type: 'pie', height: 300, events: { dataPointSelection: (event, ctx, config) => {
+            const idx = config.dataPointIndex;
+            if (districtIds[idx]) window.location.href = `/district/${districtIds[idx]}/`;
+        } } },
+        tooltip: { y: { formatter: (val) => 'TZS ' + val.toLocaleString() } },
+        legend: { position: 'bottom' }
+    };
+    new ApexCharts(document.querySelector("#districtChart"), pieOptions).render();
+
+    // --- Outstanding Bar Chart ---
+    const facilityNames = {{ facility_names|safe }};
+    const balances = {{ facility_balances|safe }};
+    const facilityIds = {{ facility_ids|safe }};
+    const barOptions = {
+        series: [{ name: 'Outstanding Balance', data: balances }],
+        chart: { type: 'bar', height: 400, events: { dataPointSelection: (event, ctx, config) => {
+            const idx = config.dataPointIndex;
+            if (facilityIds[idx]) window.location.href = `/facility/${facilityIds[idx]}/`;
+        } } },
+        xaxis: { categories: facilityNames, title: { text: 'Facility' } },
+        yaxis: { title: { text: 'Amount (TZS)' }, labels: { formatter: (val) => 'TZS ' + val.toLocaleString() } },
+        plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+        colors: ['#dc3545'],
+        dataLabels: { enabled: true, formatter: (val) => 'TZS ' + val.toLocaleString() }
+    };
+    new ApexCharts(document.querySelector("#balanceChart"), barOptions).render();
+
+    // --- Payment Status Donut Chart ---
+    const statusData = {{ status_counts|safe }}; // expects { 'Paid': x, 'Partial': y, 'Unpaid': z }
+    const donutOptions = {
+        series: [statusData.Paid, statusData.Partial, statusData.Unpaid],
+        labels: ['Paid', 'Partial', 'Unpaid'],
+        chart: { type: 'donut', height: 300 },
+        colors: ['#28a745', '#ffc107', '#dc3545'],
+        legend: { position: 'bottom' },
+        tooltip: { y: { formatter: (val) => val.toLocaleString() } }
+    };
+    new ApexCharts(document.querySelector("#statusDonutChart"), donutOptions).render();
+
+    // --- Map: district performance ---
+    const mapData = {{ map_data|safe }}; // e.g., { 'TZ': {'name': 'District', 'value': total_invoiced} }
+    if (mapData && Object.keys(mapData).length) {
+        new jsVectorMap({
+            selector: "#districtMap",
+            map: "world",
+            regionStyle: {
+                initial: { fill: "#e9ecef" },
+                hover: { fill: "#0d6efd", cursor: "pointer" }
+            },
+            onRegionClick: function(event, code) {
+                const district = mapData[code]?.name;
+                if (district) {
+                    // You may need to find district id by name; we'll use the district list.
+                    const found = districtData.find(d => d.name === district);
+                    if (found) window.location.href = `/district/${found.id}/`;
+                }
+            },
+            series: {
+                regions: [{
+                    values: Object.fromEntries(Object.entries(mapData).map(([k,v]) => [k, v.value])),
+                    scale: ['#cfe2ff', '#0d6efd'],
+                    normalizeFunction: 'polynomial'
+                }]
+            }
+        });
+    }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

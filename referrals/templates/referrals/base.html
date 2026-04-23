@@ -1,0 +1,876 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="{% static 'icon.png' %}">
+    <title>Robby One Pharmacy - Invoice & Referral System</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- ApexCharts (if needed) -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <style>
+    :root {
+        --primary: #b68d40;
+        --primary-dark: #96732e;
+        --primary-light: #d4ad5e;
+        --primary-bg: #fdf8ef;
+        --dark: #1a1a1a;
+        --light: #ffffff;
+        --muted: #6c757d;
+        --muted-light: #9ca3af;
+        --border: #e5e5e5;
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+        --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+        --shadow-lg: 0 10px 30px rgba(0,0,0,0.1);
+        --radius: 10px;
+        --radius-lg: 14px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background: #f5f5f5;
+        font-family: 'Inter', sans-serif;
+        color: var(--dark);
+    }
+
+    /* ================================
+       NAVBAR - ENHANCED CLASSIC
+    ================================ */
+    .navbar {
+        background: var(--light) !important;
+        border-bottom: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+        padding: 0.6rem 0;
+        transition: var(--transition);
+        z-index: 1050;
+    }
+
+    .navbar.scrolled {
+        box-shadow: var(--shadow-md);
+    }
+
+    /* Brand */
+    .navbar-brand {
+        font-weight: 800;
+        font-size: 1.25rem;
+        color: var(--dark) !important;
+        letter-spacing: -0.3px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        transition: var(--transition);
+    }
+
+    .navbar-brand:hover {
+        color: var(--primary) !important;
+    }
+
+    .brand-icon {
+        width: 38px;
+        height: 38px;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.1rem;
+        box-shadow: 0 2px 8px rgba(182, 141, 64, 0.3);
+    }
+
+    .brand-text {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.1;
+    }
+
+    .brand-name {
+        font-size: 1.15rem;
+        font-weight: 800;
+    }
+
+    .brand-subtitle {
+        font-size: 0.65rem;
+        color: var(--muted-light);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+    }
+
+    /* Nav Links */
+    .nav-link {
+        color: var(--dark) !important;
+        font-weight: 500;
+        font-size: 0.9rem;
+        margin: 0 2px;
+        padding: 0.6rem 1rem !important;
+        border-radius: 8px;
+        transition: var(--transition);
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .nav-link:hover {
+        color: var(--primary) !important;
+        background: var(--primary-bg);
+    }
+
+    .nav-link.active {
+        color: var(--primary) !important;
+        background: var(--primary-bg);
+        font-weight: 600;
+    }
+
+    .nav-link.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 20px;
+        height: 3px;
+        background: var(--primary);
+        border-radius: 3px;
+    }
+
+    .nav-link i {
+        font-size: 1rem;
+    }
+
+    /* Dropdown Toggle */
+    .dropdown-toggle::after {
+        display: none;
+    }
+
+    .dropdown-toggle .bi-chevron-down {
+        font-size: 0.65rem;
+        transition: var(--transition);
+        margin-left: 2px;
+    }
+
+    .dropdown.show .dropdown-toggle .bi-chevron-down {
+        transform: rotate(180deg);
+    }
+
+    /* Dropdown Menu */
+    .dropdown-menu {
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        padding: 8px;
+        min-width: 220px;
+        animation: dropdownFade 0.2s ease;
+        margin-top: 8px !important;
+    }
+
+    @keyframes dropdownFade {
+        from {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .dropdown-item {
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        font-weight: 500;
+        color: var(--dark);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: var(--transition);
+        margin-bottom: 2px;
+    }
+
+    .dropdown-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .dropdown-item:hover {
+        background: var(--primary-bg);
+        color: var(--primary);
+    }
+
+    .dropdown-item.active {
+        background: var(--primary-bg);
+        color: var(--primary);
+        font-weight: 600;
+    }
+
+    .dropdown-item i {
+        font-size: 1rem;
+        width: 20px;
+        text-align: center;
+        color: var(--muted);
+        transition: var(--transition);
+    }
+
+    .dropdown-item:hover i,
+    .dropdown-item.active i {
+        color: var(--primary);
+    }
+
+    .dropdown-item .badge {
+        font-size: 0.7rem;
+        padding: 3px 8px;
+        margin-left: auto;
+    }
+
+    .dropdown-divider {
+        margin: 6px 0;
+        border-color: var(--border);
+    }
+
+    /* Notification Badge */
+    .notification-btn {
+        position: relative;
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        color: var(--dark);
+        transition: var(--transition);
+        cursor: pointer;
+    }
+
+    .notification-btn:hover {
+        background: var(--primary-bg);
+        color: var(--primary);
+    }
+
+    .notification-badge {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 18px;
+        height: 18px;
+        background: #ef4444;
+        color: white;
+        border-radius: 50%;
+        font-size: 0.65rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--light);
+        animation: badgePulse 2s infinite;
+    }
+
+    @keyframes badgePulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+
+    /* User Menu */
+    .user-menu-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 12px 4px 4px;
+        border-radius: 50px;
+        border: 1px solid var(--border);
+        background: var(--light);
+        cursor: pointer;
+        transition: var(--transition);
+        text-decoration: none;
+    }
+
+    .user-menu-btn:hover {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(182, 141, 64, 0.1);
+    }
+
+    .user-avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1rem;
+        overflow: hidden;
+    }
+
+    .user-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .user-info {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.2;
+    }
+
+    .user-name {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--dark);
+    }
+
+    .user-role {
+        font-size: 0.68rem;
+        color: var(--muted-light);
+    }
+
+    .user-menu-btn .bi-chevron-down {
+        font-size: 0.7rem;
+        color: var(--muted);
+        transition: var(--transition);
+    }
+
+    .user-menu-btn.show .bi-chevron-down {
+        transform: rotate(180deg);
+    }
+
+    /* User Dropdown */
+    .user-dropdown {
+        width: 280px;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .user-dropdown-header {
+        padding: 16px;
+        background: linear-gradient(135deg, var(--primary-bg), var(--light));
+        border-bottom: 1px solid var(--border);
+    }
+
+    .user-dropdown-header .user-avatar {
+        width: 48px;
+        height: 48px;
+        font-size: 1.4rem;
+    }
+
+    .user-dropdown-header .user-name {
+        font-size: 0.95rem;
+        margin-top: 4px;
+    }
+
+    .user-dropdown-header .user-email {
+        font-size: 0.78rem;
+        color: var(--muted-light);
+    }
+
+    .user-dropdown .dropdown-item {
+        padding: 10px 16px;
+    }
+
+    .user-dropdown .dropdown-item.danger-item {
+        color: #dc2626;
+    }
+
+    .user-dropdown .dropdown-item.danger-item i {
+        color: #dc2626;
+    }
+
+    .user-dropdown .dropdown-item.danger-item:hover {
+        background: #fef2f2;
+    }
+
+    /* Nav Divider */
+    .nav-divider {
+        width: 1px;
+        height: 28px;
+        background: var(--border);
+        margin: 0 8px;
+        align-self: center;
+    }
+
+    /* Mobile Nav */
+    @media (max-width: 991.98px) {
+        .navbar {
+            padding: 0.8rem 0;
+        }
+
+        .navbar-collapse {
+            background: var(--light);
+            margin-top: 12px;
+            padding: 16px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
+        }
+
+        .nav-link.active::after {
+            display: none;
+        }
+
+        .nav-divider {
+            display: none;
+        }
+
+        .user-info {
+            display: none;
+        }
+
+        .user-menu-btn {
+            padding: 8px;
+            border-radius: 10px;
+        }
+
+        .user-dropdown {
+            width: 100%;
+            box-shadow: none;
+            border: none;
+            padding: 0;
+            margin-top: 8px !important;
+        }
+
+        .user-dropdown-header {
+            display: none;
+        }
+    }
+
+    /* Toggler */
+    .navbar-toggler {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 10px;
+        transition: var(--transition);
+    }
+
+    .navbar-toggler:focus {
+        box-shadow: 0 0 0 3px rgba(182, 141, 64, 0.2);
+        border-color: var(--primary);
+    }
+
+    .navbar-toggler-icon {
+        width: 1.2em;
+        height: 1.2em;
+    }
+
+    /* MAIN */
+    .main-container {
+        padding: 30px 0;
+    }
+
+    /* CARDS */
+    .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--light);
+        box-shadow: var(--shadow-sm);
+        transition: var(--transition);
+    }
+
+    .card:hover {
+        box-shadow: var(--shadow-md);
+    }
+
+    /* BUTTONS */
+    .btn-primary {
+        background: var(--primary);
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 0.55rem 1.25rem;
+        transition: var(--transition);
+    }
+
+    .btn-primary:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(182, 141, 64, 0.3);
+    }
+
+    .btn-success {
+        background: #16a34a;
+        border: none;
+        border-radius: 8px;
+    }
+
+    .btn-danger {
+        background: #dc2626;
+        border: none;
+        border-radius: 8px;
+    }
+
+    .btn-outline-primary {
+        border: 1.5px solid var(--primary);
+        color: var(--primary);
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    .btn-outline-primary:hover {
+        background: var(--primary);
+        border-color: var(--primary);
+    }
+
+    /* TABLE */
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead th {
+        background: #fafafa;
+        border-bottom: 2px solid var(--border);
+        font-weight: 600;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+        padding: 12px 16px;
+    }
+
+    .table tbody td {
+        padding: 12px 16px;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .table tbody tr:hover {
+        background: var(--primary-bg);
+    }
+
+    /* ALERTS */
+    .alert {
+        border-radius: var(--radius);
+        border: none;
+        padding: 14px 18px;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .alert-success {
+        background: #dcfce7;
+        color: #166534;
+        border-left: 4px solid #16a34a;
+    }
+
+    .alert-danger {
+        background: #fef2f2;
+        color: #991b1b;
+        border-left: 4px solid #dc2626;
+    }
+
+    .alert-warning {
+        background: #fffbeb;
+        color: #92400e;
+        border-left: 4px solid #f59e0b;
+    }
+
+    .alert-info {
+        background: #eff6ff;
+        color: #1e40af;
+        border-left: 4px solid #3b82f6;
+    }
+
+    /* FOOTER */
+    .footer {
+        background: var(--light);
+        border-top: 1px solid var(--border);
+        padding: 20px 0;
+        margin-top: 40px;
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #d4d4d4;
+        border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a3a3a3;
+    }
+
+    /* STATUS BADGES */
+    .badge-paid {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-partial {
+        background: #fffbeb;
+        color: #92400e;
+    }
+
+    .badge-unpaid {
+        background: #fef2f2;
+        color: #991b1b;
+    }
+    </style>
+</head>
+<body>
+<!-- ================================
+     NAVBAR
+================================ -->
+<nav class="navbar navbar-expand-lg sticky-top" id="mainNavbar">
+    <div class="container">
+        <!-- Brand -->
+        <a class="navbar-brand" href="https://tenda.pythonanywhere.com">
+            <div class="brand-icon">
+                <i class="bi bi-capsule"></i>
+            </div>
+            <div class="brand-text d-none d-sm-block">
+                <span class="brand-name">Robby One Pharmacy</span>
+                <span class="brand-subtitle">Invoice System</span>
+            </div>
+        </a>
+
+        <!-- Mobile Toggler -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <!-- Nav Content -->
+        <div class="collapse navbar-collapse" id="navbarMain">
+            <!-- Main Navigation -->
+            <ul class="navbar-nav me-auto">
+                <!-- Dashboard -->
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'referral:dashboard' %}">
+                        <i class="bi bi-grid-1x2"></i>
+                        <span class="d-none d-lg-inline">Dashboard</span>
+                    </a>
+                </li>
+
+                <!-- Hospitals Dropdown -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if request.resolver_match.url_name == 'source_list' or request.resolver_match.url_name == 'invoice_list' %}active{% endif %}" href="#" id="hospitalsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-hospital"></i>
+                        <span class="d-none d-lg-inline">Hospitals</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="hospitalsDropdown">
+                        <li>
+                            <a class="dropdown-item {% if request.resolver_match.url_name == 'source_list' %}active{% endif %}" href="{% url 'referral:source_list' %}">
+                                <i class="bi bi-building"></i>
+                                Hospital Sources
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item {% if request.resolver_match.url_name == 'invoice_list' %}active{% endif %}" href="{% url 'referral:invoice_list' %}">
+                                <i class="bi bi-receipt-cutoff"></i>
+                                Hospital Invoices
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+            </ul>
+
+            <!-- Right Side -->
+            <ul class="navbar-nav ms-auto align-items-center">
+                <div class="nav-divider d-none d-lg-block"></div>
+
+                <!-- Notifications -->
+                <li class="nav-item">
+                    <a class="notification-btn" href="{% url 'notifications' %}" title="Notifications">
+                        <i class="bi bi-bell"></i>
+                        {% if unread_notifications_count > 0 %}
+                            <span class="notification-badge">{{ unread_notifications_count }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+
+                <!-- User Menu -->
+                <li class="nav-item dropdown ms-1">
+                    <a class="user-menu-btn" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <div class="user-avatar">
+                            {% if user.profile.profile_picture %}
+                                <img src="{{ user.profile.profile_picture.url }}" alt="Profile">
+                            {% else %}
+                                <i class="bi bi-person-fill"></i>
+                            {% endif %}
+                        </div>
+                        <div class="user-info d-none d-lg-block">
+                            <span class="user-name">{{ user.get_full_name|default:user.username }}</span>
+                            <span class="user-role">Staff</span>
+                        </div>
+                        <i class="bi bi-chevron-down d-none d-lg-block"></i>
+                    </a>
+
+                    <ul class="dropdown-menu dropdown-menu-end user-dropdown" aria-labelledby="userDropdown">
+                        <!-- Desktop Only Header -->
+                        <li class="d-none d-lg-block">
+                            <div class="user-dropdown-header d-flex align-items-center gap-3">
+                                <div class="user-avatar">
+                                    {% if user.profile.profile_picture %}
+                                        <img src="{{ user.profile.profile_picture.url }}" alt="Profile">
+                                    {% else %}
+                                        <i class="bi bi-person-fill"></i>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
+                                    <div class="user-email">{{ user.email|default:"No email" }}</div>
+                                </div>
+                            </div>
+                        </li>
+
+                        <!-- Mobile Info -->
+                        <li class="d-lg-none">
+                            <div class="dropdown-item-text px-3 py-2">
+                                <strong>{{ user.get_full_name|default:user.username }}</strong>
+                                <br>
+                                <small class="text-muted">{{ user.email|default:"No email" }}</small>
+                            </div>
+                        </li>
+
+                        <li><hr class="dropdown-divider"></li>
+
+                        <li>
+                            <a class="dropdown-item" href="{% url 'profile' %}">
+                                <i class="bi bi-person"></i>
+                                My Profile
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'profile_settings' %}">
+                                <i class="bi bi-gear"></i>
+                                Account Settings
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'notifications' %}">
+                                <i class="bi bi-bell"></i>
+                                Notifications
+                                {% if unread_notifications_count > 0 %}
+                                    <span class="badge bg-danger rounded-pill ms-auto">{{ unread_notifications_count }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="post" action="{% url 'logout' %}">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item danger-item w-100 text-start">
+                                    <i class="bi bi-box-arrow-right"></i>
+                                    Sign Out
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<div class="main-container">
+    <div class="container">
+        <!-- Display Messages -->
+        {% if messages %}
+            <div class="mb-3">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% elif message.tags == 'error' %}x-circle-fill{% elif message.tags == 'warning' %}exclamation-triangle-fill{% else %}info-circle-fill{% endif %}"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <!-- Page Content -->
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-6 text-center text-md-start">
+                <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2">
+                    <div class="brand-icon" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                        <i class="bi bi-capsule"></i>
+                    </div>
+                    <div>
+                        <span class="fw-bold" style="font-size: 0.9rem;">Robby One Pharmacy</span>
+                        <span class="text-muted ms-2" style="font-size: 0.8rem;">Invoice & Referral System</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 text-center text-md-end mt-2 mt-md-0">
+                <span class="text-muted small">
+                    <i class="bi bi-shield-check me-1"></i> v2.2
+                    <span class="mx-2">•</span>
+                    <i class="bi bi-calendar3 me-1"></i> {% now "F j, Y" %}
+                </span>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- Bootstrap JS Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// Navbar scroll effect
+document.addEventListener('DOMContentLoaded', function() {
+    const navbar = document.getElementById('mainNavbar');
+
+    window.addEventListener('scroll', function() {
+        if (window.scrollY > 10) {
+            navbar.classList.add('scrolled');
+        } else {
+            navbar.classList.remove('scrolled');
+        }
+    });
+
+    // Close dropdown on click outside (mobile)
+    document.querySelectorAll('.nav-link, .dropdown-item').forEach(link => {
+        link.addEventListener('click', function() {
+            const navbarCollapse = document.getElementById('navbarMain');
+            if (navbarCollapse.classList.contains('show') && window.innerWidth < 992) {
+                const bsCollapse = bootstrap.Collapse.getInstance(navbarCollapse);
+                if (bsCollapse) {
+                    bsCollapse.hide();
+                }
+            }
+        });
+    });
+});
+</script>
+
+<script src="{% static 'assets/style.js' %}"></script>
+
+<!-- Additional block for page-specific scripts -->
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>
